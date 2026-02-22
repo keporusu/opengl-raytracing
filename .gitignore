@@ -1,0 +1,6 @@
+.vscode/
+app.dSYM/
+dependencies/
+glslang/
+app
+test_app
