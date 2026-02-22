@@ -124,13 +124,13 @@ vec3 esgtsa3(vec4 v)
 }
 //３次元ベクトル0~1
 vec3 random_unit_vector(vec4 v){
-    while (true) {
-        vec3 p = esgtsa3(v)*2.0-1.0;
-        float lensq = dot(p,p);
-        if (1e-160 < lensq && lensq <= 1)
+    for (int i = 0; i < 100; i++) {
+        vec3 p = esgtsa3(vec4(v.x, v.y, v.z, v.w + float(i) * 3.0)) * 2.0 - 1.0;
+        float lensq = dot(p, p);
+        if (1e-160 < lensq && lensq <= 1.0)
             return p / sqrt(lensq);
     }
-    return vec3(0.0);
+    return vec3(0.0, 1.0, 0.0);
 }
 //3次元ベクトル
 vec3 random_on_hemisphere(vec3 normal, vec4 v){
@@ -141,7 +141,7 @@ vec3 random_on_hemisphere(vec3 normal, vec4 v){
     else{
         return -unit_vec_on_sphere;
     }
-    return vec3(0.0);
+    return vec3(0.0,1.0,0.0);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -165,70 +165,82 @@ void push_env(Environment env){
     env_stack_count++;
 }
 Environment pop_env(){
-    return envs_stack[env_stack_count--];
+    return envs_stack[--env_stack_count];
 }
 vec3 launch_ray(Ray ray) {
 
-    // const int max_depth=8;
-    // push_env(Environment(STATE_CALLED,ray,vec3(1.0),max_depth));
+    //スタック初期化
+    env_stack_count=0;
+
+    const int max_depth=10;
+    //最初のレイを飛ばす
+    push_env(Environment(STATE_CALLED,ray,vec3(1.0),max_depth));
+    vec3 result=vec3(1.0,0.0,1.0);
     
-    // while(env_stack_count>0){
-    //     Environment env=pop_env();
-    //     switch(env.state){
-    //         case STATE_CALLED:
-    //         //深さが限界に達していたら終了
-    //         if(env.depth<=0){
-    //             push_env(Environment(STATE_RETURN, env.ray,env.attenuation,env.depth));
-    //             break;
-    //         }
-            
-    //         break;
-    //         case STATE_RETURN:
-    //         break;
-    //         default:
-    //         break;
-    //     }
-    // }
+    while(env_stack_count>0){
+        Environment env=pop_env();
+        switch(env.state){
 
-    //それぞれの球とレイがヒットするか調べる
-    bool no_hit = true;
-    float min_dist = infinity;
-    HitRecord use_record;
-    for(int i = 0; i < sphere_count; i++) {
-        Sphere sphere = spheres[i];
+            //再起開始
+            case STATE_CALLED:
+            //深さが限界に達していたら終了
+            if(env.depth<=0){
+                result = vec3(0.0);
+                break;
+            }
 
-        //レイ発射
-        HitRecord hitRecord;
-        bool hit = hit_sphere(sphere, ray, hitRecord, 0.0, infinity);//ray_dir=dt+origのt
+            bool no_hit = true;
+            float min_dist = infinity;
+            HitRecord use_record;
+            //それぞれのプリミティブとレイの交点を計算、一番近いところを取る
+            for(int i = 0; i < sphere_count; i++) {
+                Sphere sphere = spheres[i];
 
-        if(!hit)
-            continue;
+                //レイ発射
+                HitRecord hitRecord;
+                bool hit = hit_sphere(sphere, env.ray, hitRecord, 1e-5, infinity);//ray_dir=dt+origのt
 
-        no_hit=false;
-        //一番近いレイの交点
-        if(hitRecord.ray_pram < min_dist) {
-            use_record = hitRecord;
-            min_dist = hitRecord.ray_pram;
+                if(!hit)
+                    continue;
+
+                no_hit=false;
+                //一番近いレイの交点
+                if(hitRecord.ray_pram < min_dist) {
+                    use_record = hitRecord;
+                    min_dist = hitRecord.ray_pram;
+                }
+            }
+
+            //当たらなかった
+            if(no_hit) {
+                //背景色
+                float a = 0.5 * (env.ray.direction.y + 1.0);
+                result = (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
+                push_env(Environment(STATE_RETURN, env.ray,env.attenuation,env.depth));
+            }
+            //当たった場合
+            else{
+                vec4 seed=vec4(vec3(TexCoord.xy,use_record.ray_pram)*1000.0,float(env.depth));
+                vec3 scatter_dir=random_on_hemisphere(use_record.normal,seed);
+                Ray new_ray=Ray(use_record.point,scatter_dir);
+                vec3 new_attenuation=env.attenuation*0.5;
+                push_env(Environment(STATE_RETURN,env.ray,env.attenuation,env.depth));
+                push_env(Environment(STATE_CALLED,new_ray,new_attenuation,env.depth-1));
+            }
+            break;
+
+            //再起終了
+            case STATE_RETURN:
+            result=result*env.attenuation;
+            break;
+
+            default:
+            vec3 result=vec3(1.0,0.0,1.0);
+            break;
         }
     }
 
-    //色の決定
-    ////ヒットしなかった場合
-    if(no_hit) {
-        float a = 0.5 * (ray.direction.y + 1.0);
-        vec3 color = (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
-        return color;
-    } 
-    ////ヒットした場合
-    else {
-        
-        if(use_record.material == 1) {
-            return 0.5 * vec3(use_record.normal.x + 1.0, use_record.normal.y + 1.0, use_record.normal.z + 1.0);
-        }
-        else{
-            return vec3(0.0,1.0,0.0);
-        }
-    }
+    return result;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
