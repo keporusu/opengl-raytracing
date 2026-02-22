@@ -144,8 +144,20 @@ int main()
     // Rendering Loop
     ////
     int frame = 0;
+    int fpsCount=0;
+    double lastTime=glfwGetTime();
     while (!glfwWindowShouldClose(window.get()))
     {
+        // FPS計測
+        double currentTime = glfwGetTime();
+        fpsCount++;
+        if (currentTime - lastTime >= 1.0) // 1秒ごとに出力
+        {
+            std::cout << "FPS: " << fpsCount << std::endl;
+            fpsCount = 0;
+            lastTime = currentTime;
+        }
+        
         // 入力処理
         processInput(window.get(), camera);
 

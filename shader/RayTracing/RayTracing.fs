@@ -97,6 +97,7 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //乱数
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//オリジナル
 uint esgtsa_orig(uint seed) {
     uint s = seed;
     s = (s ^ 2747636419u) * 2654435769u;
@@ -104,23 +105,24 @@ uint esgtsa_orig(uint seed) {
     s = (s ^ s >> 16u) * 2654435769u;
     return s;
 } 
-//0~1
+//スカラー0~1
 float esgtsa(vec4 v) {
     return float(esgtsa_orig(esgtsa_orig(esgtsa_orig(esgtsa_orig(uint(v.x)) + uint(v.y)) + uint(v.z)) + uint(v.w))) * 2.3283064365386962890625e-10;
 }
-//-1~1
+//2次元0~1
 vec2 esgtsa2(vec4 v) {
     float r1 = esgtsa(v);
     float r2 = esgtsa(vec4(v.x, v.y, v.z, v.w + 1.0));
     return vec2(r1, r2);
 }
+//3次元0~1
 vec3 esgtsa3(vec4 v) {
     float r1 = esgtsa(v);
     float r2 = esgtsa(vec4(v.x, v.y, v.z, v.w + 1.0));
     float r3 = esgtsa(vec4(v.x, v.y, v.z, v.w + 2.0));
     return vec3(r1, r2, r3);
 }
-//３次元ベクトル0~1
+//３次元ベクトル-1~1
 vec3 random_unit_vector(vec4 v) {
     for(int i = 0; i < 100; i++) {
         vec3 p = esgtsa3(vec4(v.x, v.y, v.z, v.w + float(i) * 3.0)) * 2.0 - 1.0;
@@ -130,7 +132,7 @@ vec3 random_unit_vector(vec4 v) {
     }
     return vec3(0.0, 1.0, 0.0);
 }
-//3次元ベクトル
+//3次元ベクトル半球面上
 vec3 random_on_hemisphere(vec3 normal, vec4 v) {
     vec3 unit_vec_on_sphere = random_unit_vector(v);
     if(dot(unit_vec_on_sphere, normal) > 0.0) {
