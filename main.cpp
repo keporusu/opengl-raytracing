@@ -228,4 +228,8 @@ void processInput(GLFWwindow *window, Camera &camera)
     {
         camera.Move(glm::vec3(0.0f, 0.0f, 0.02f));
     }
+
+    int viewport_width,viewport_height;
+    glfwGetWindowSize(window,&viewport_width,&viewport_height);
+    camera.SetAspectRatio(float(viewport_width)/float(viewport_height));
 }
