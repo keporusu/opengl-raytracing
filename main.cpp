@@ -82,7 +82,7 @@ int main()
     std::vector<float> vertices = ModelLoader::GetQuadVertices();
     std::vector<unsigned int> indices = ModelLoader::GetQuadIndices();
     Scene scene;
-    Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), (float)WINDOW_WIDTH/(float)WINDOW_HEIGHT);
+    Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
 
     GLuint VBO, VAO, EBO;
 
@@ -120,7 +120,7 @@ int main()
     glBindFramebuffer(GL_FRAMEBUFFER, GL_NO_BINDING);
 
     // UBO設定
-    GLuint primitivesUBO, cameraUBO;
+    GLuint primitivesUBO, cameraUBO, materialsUBO;
     // プリミティブ
     glGenBuffers(1, &primitivesUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, primitivesUBO);
@@ -130,7 +130,12 @@ int main()
     glGenBuffers(1, &cameraUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(UBO_Camera), camera.GetUBO(), GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 1, cameraUBO); //BindingPoint 1
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, cameraUBO); // BindingPoint 1
+    // マテリアル
+    glGenBuffers(1, &materialsUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, materialsUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(UBO_Materials), scene.GetMateialsUBO(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, materialsUBO); // BindingPoint 2
 
     ////
     // シェーダのコンパイル・オブジェクト作成
@@ -139,13 +144,14 @@ int main()
     auto output_program = Shader("shader/Output/Output.vs", "shader/Output/Output.fs");
     raytracing_program.BindUniformBlock("PrimitivesBlock", 0);
     raytracing_program.BindUniformBlock("CameraBlock", 1);
+    raytracing_program.BindUniformBlock("MaterialsBlock", 2);
 
     ////
     // Rendering Loop
     ////
     int frame = 0;
-    int fpsCount=0;
-    double lastTime=glfwGetTime();
+    int fpsCount = 0;
+    double lastTime = glfwGetTime();
     while (!glfwWindowShouldClose(window.get()))
     {
         // FPS計測
@@ -157,7 +163,7 @@ int main()
             fpsCount = 0;
             lastTime = currentTime;
         }
-        
+
         // 入力処理
         processInput(window.get(), camera);
 
@@ -241,7 +247,7 @@ void processInput(GLFWwindow *window, Camera &camera)
         camera.Move(glm::vec3(0.0f, 0.0f, 0.02f));
     }
 
-    int viewport_width,viewport_height;
-    glfwGetWindowSize(window,&viewport_width,&viewport_height);
-    camera.SetAspectRatio(float(viewport_width)/float(viewport_height));
+    int viewport_width, viewport_height;
+    glfwGetWindowSize(window, &viewport_width, &viewport_height);
+    camera.SetAspectRatio(float(viewport_width) / float(viewport_height));
 }

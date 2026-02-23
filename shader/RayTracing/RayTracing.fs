@@ -1,101 +1,18 @@
 #version 330 core
-
-////
-//const
-////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// utility
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float infinity = 3.402823e+38;
-#define SPHERE_MAX 50
-#define PLANE_MAX 50
-#define ERROR_COLOR vec3(1.0,0.0,1.0)
-
-//////////////////////////////////////////////////////
-// Ray Data
-//////////////////////////////////////////////////////
-struct Ray {
-    vec3 origin;
-    vec3 direction;
-};
-struct HitRecord {
-    vec3 point;
-    vec3 normal;
-    float ray_pram;
-    bool front_face;
-    int material;
-};
-
-//////////////////////////////////////////////////////
-//Primitives
-//////////////////////////////////////////////////////
-struct Sphere {
-    vec3 center;
-    float radius;
-    int material;
-};
-
-//////////////////////////////////////////////////////
-//in-out
-//////////////////////////////////////////////////////
-layout(location = 0) out vec3 color;
-in vec2 TexCoord;
-
-//////////////////////////////////////////////////////
-// uniform
-//////////////////////////////////////////////////////
-uniform float u_frame;
-const float focal_length = 1.0;
-layout(std140) uniform PrimitivesBlock {
-    int sphere_count;
-    Sphere spheres[SPHERE_MAX];
-    // int plane_count;
-    // Plane planes[PLANE_MAX];
-};
-layout(std140) uniform CameraBlock {
-    vec3 camera_pos;
-    float aspect_ratio;
-    int max_depth;
-};
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 球
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin, float ray_tmax) {
-    //解: (-b +- sqrt(bb-4ac))/2a
-    //線と球の交点計算
-    float a = dot(ray.direction, ray.direction);
-    vec3 orig_to_c = sphere.center - ray.origin;
-    float h = dot(ray.direction, orig_to_c);
-    float c = dot(orig_to_c, orig_to_c) - sphere.radius * sphere.radius;
-    float discriminant = h * h - a * c;
-
-    //交わらない
-    if(discriminant < 0) {
-        return false;
-    }
-
-    float sqrtd = sqrt(discriminant);
-    // 許容範囲内の解を見つける
-    float root = (h - sqrtd) / a;
-    if(root <= ray_tmin || ray_tmax <= root) {
-        root = (h + sqrtd) / a;
-        if(root <= ray_tmin || ray_tmax <= root)
-            return false;//解がない
-    }
-
-    //ヒット情報の書き込み
-    hitRecord.ray_pram = root;//解
-    hitRecord.point = root * ray.direction + ray.origin;//ヒット位置
-    vec3 outward_normal = (hitRecord.point - sphere.center) / sphere.radius;
-    hitRecord.front_face = dot(ray.direction, outward_normal) < 0; //当たったのは表面か？
-    hitRecord.normal = hitRecord.front_face ? outward_normal : -outward_normal;//法線の向き
-    hitRecord.material = sphere.material;
-
-    //交わった
-    return true;
+vec3 linear_to_gamma(vec3 c) {
+    return sqrt(max(c, 0.0));
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool near_zero(vec3 v) {
+    const float e = 1e-8;
+    return abs(v.x) < e && abs(v.y) < e && abs(v.z) < e;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//乱数
+// 乱数
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //オリジナル
 uint esgtsa_orig(uint seed) {
@@ -144,8 +61,164 @@ vec3 random_on_hemisphere(vec3 normal, vec4 v) {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////
+// Const
+//////////////////////////////////////////////////////
+#define SPHERE_MAX 50
+#define PLANE_MAX 50
+#define MATERIAL_MAX 10
+#define ERROR_COLOR vec3(1.0,0.0,1.0)
+
+//////////////////////////////////////////////////////
+// データ構造
+//////////////////////////////////////////////////////
+//レイ
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+//レイがヒットした場所の情報
+struct HitRecord {
+    vec3 point;
+    vec3 normal;
+    float ray_pram;
+    bool front_face;
+    int material;
+};
+
+// Primitives
+struct Sphere {
+    vec3 center;
+    float radius;
+    int material;
+};
+// Materials
+#define MATERIAL_LAMBERTIAN 1
+#define MATERIAL_METAL 2
+#define MATERIAL_DIELECTRIC 3
+struct Material {
+    int material_type;
+    vec3 albedo;
+    float fuzz;
+};
+//////////////////////////////////////////////////////
+// in-out
+//////////////////////////////////////////////////////
+layout(location = 0) out vec3 color;
+in vec2 TexCoord;
+
+//////////////////////////////////////////////////////
+// uniform
+//////////////////////////////////////////////////////
+uniform float u_frame;
+const float focal_length = 1.0;
+layout(std140) uniform PrimitivesBlock {
+    int sphere_count;
+    Sphere spheres[SPHERE_MAX];
+    // int plane_count;
+    // Plane planes[PLANE_MAX];
+};
+layout(std140) uniform CameraBlock {
+    vec3 camera_pos;
+    float aspect_ratio;
+    int max_depth;
+};
+layout(std140) uniform MaterialsBlock {
+    int material_count;
+    Material materials[MATERIAL_MAX];
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//レイ発射処理
+// プリミティブとの交点計算
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin, float ray_tmax) {
+    //解: (-b +- sqrt(bb-4ac))/2a
+    //線と球の交点計算
+    float a = dot(ray.direction, ray.direction);
+    vec3 orig_to_c = sphere.center - ray.origin;
+    float h = dot(ray.direction, orig_to_c);
+    float c = dot(orig_to_c, orig_to_c) - sphere.radius * sphere.radius;
+    float discriminant = h * h - a * c;
+
+    //交わらない
+    if(discriminant < 0) {
+        return false;
+    }
+
+    float sqrtd = sqrt(discriminant);
+    // 許容範囲内の解を見つける
+    float root = (h - sqrtd) / a;
+    if(root <= ray_tmin || ray_tmax <= root) {
+        root = (h + sqrtd) / a;
+        if(root <= ray_tmin || ray_tmax <= root)
+            return false;//解がない
+    }
+
+    //ヒット情報の書き込み
+    hitRecord.ray_pram = root;//解
+    hitRecord.point = root * ray.direction + ray.origin;//ヒット位置
+    vec3 outward_normal = (hitRecord.point - sphere.center) / sphere.radius;
+    hitRecord.front_face = dot(ray.direction, outward_normal) < 0; //当たったのは表面か？
+    hitRecord.normal = hitRecord.front_face ? outward_normal : -outward_normal;//法線の向き
+    hitRecord.material = sphere.material;
+
+    //交わった
+    return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 散乱処理（マテリアルの挙動）
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, out Ray scattered, vec4 seed) {
+
+    //今回使うマテリアル
+    Material use_material = materials[material];
+    vec3 scatter_dir;
+
+    switch(use_material.material_type) {
+        //Lambertian
+        case MATERIAL_LAMBERTIAN: {
+            vec3 albedo = use_material.albedo;
+            //ランバート分布による拡散反射
+            scatter_dir = hitRecord.normal + random_unit_vector(seed);
+            //ランバート分布での反射だと、ゼロに近いベクトルが生まれることがある
+            if(near_zero(scatter_dir)) {
+                scatter_dir = hitRecord.normal;
+            }
+            attenuation = albedo;
+            break;
+        }
+        //Metal
+        case MATERIAL_METAL: {
+            vec3 albedo = use_material.albedo;
+            //鏡面反射
+            scatter_dir = reflect(ray.direction, hitRecord.normal);
+            //Fuzzy Reflection
+            scatter_dir = normalize(scatter_dir) + (use_material.fuzz * random_unit_vector(seed));
+            attenuation = albedo;
+            break;
+        }
+        //誘電体
+        // case MATERIAL_DIELECTRIC:{
+        //     //相対屈折率 ri=n2/n1（n1の媒質からn2の媒質に入る時）
+        //     //glslでは相対屈折率の逆数を取る
+        //     float ri=hitRecord.front_face ? 1.0/
+        // }
+        default: {
+            attenuation = ERROR_COLOR;
+            scatter_dir = vec3(0.0, 1.0, 0.0);
+            break;
+        }
+    }
+
+    scattered = Ray(hitRecord.point, normalize(scatter_dir));
+
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// レイ反射処理
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 再帰関数が使えないのでスタック
 #define STATE_CALLED 0
@@ -155,10 +228,10 @@ int env_stack_count = 0;
 struct Environment {
     int state;//状態 0:再起開始 1:再帰呼び出し終了
     Ray ray;           // 今のレイ
-    vec3 attenuation; // エネルギーの減衰
+    vec3 accum_attenuation; // エネルギーの減衰
     int depth;         // 再帰の深さ
 };
-Environment envs_stack[STACK_MAX];
+Environment envs_stack[STACK_MAX]; //スタック
 void push_env(Environment env) {
     envs_stack[env_stack_count] = env;
     env_stack_count++;
@@ -216,23 +289,24 @@ vec3 launch_ray(Ray ray) {
                 //背景色
                     float a = 0.5 * (env.ray.direction.y + 1.0);
                     result = (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
-                    push_env(Environment(STATE_RETURN, env.ray, env.attenuation, env.depth));
+                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.depth));
                 }
             //当たった場合
                 else {
                     vec4 seed = vec4(vec3(TexCoord.xy, use_record.ray_pram) * 1000.0, float(env.depth));
-                    vec3 scatter_dir = use_record.normal + random_unit_vector(seed);//ランバート分布
-                    Ray new_ray = Ray(use_record.point, scatter_dir);
-                    vec3 new_attenuation = env.attenuation * 0.5;
-                    push_env(Environment(STATE_RETURN, env.ray, env.attenuation, env.depth));
-                    push_env(Environment(STATE_CALLED, new_ray, new_attenuation, env.depth - 1));
+                    Ray new_ray;
+                    vec3 attenuation;
+                    scatter(use_record.material, ray, use_record, attenuation, new_ray, seed);
+                    vec3 new_accum_attenuation = env.accum_attenuation * attenuation;
+                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.depth));
+                    push_env(Environment(STATE_CALLED, new_ray, new_accum_attenuation, env.depth - 1));
                 }
                 break;
             }
 
             //再起終了
             case STATE_RETURN: {
-                result = result * env.attenuation;
+                result = result * env.accum_attenuation;
                 break;
             }
 
@@ -244,7 +318,7 @@ vec3 launch_ray(Ray ray) {
     }
 
     //ガンマ補正をかける
-    result = sqrt(max(result, 0.0));
+    result = linear_to_gamma(result);
 
     if(env_stack_count > STACK_MAX)
         result = ERROR_COLOR;
@@ -253,6 +327,7 @@ vec3 launch_ray(Ray ray) {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//メイン（レイ作成・発射とサンプル平均処理）
 void main() {
 
     //座標系の作成
