@@ -99,7 +99,8 @@ struct Sphere {
 struct Material {
     int material_type;
     vec3 albedo;
-    float fuzz;
+    float fuzz; //金属限定 ぼやかし
+    float refraction_index; //誘電体限定 相対屈折率　
 };
 //////////////////////////////////////////////////////
 // in-out
@@ -200,11 +201,15 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
             break;
         }
         //誘電体
-        // case MATERIAL_DIELECTRIC:{
-        //     //相対屈折率 ri=n2/n1（n1の媒質からn2の媒質に入る時）
-        //     //glslでは相対屈折率の逆数を取る
-        //     float ri=hitRecord.front_face ? 1.0/
-        // }
+        case MATERIAL_DIELECTRIC: {
+            //相対屈折率 ri=n2/n1（n1の媒質からn2の媒質に入る時）
+            //glslでは相対屈折率の逆数を取る
+            float abs_ri = use_material.refraction_index;
+            float ri = hitRecord.front_face ? 1.0 / abs_ri : abs_ri;
+            scatter_dir = refract(ray.direction, hitRecord.normal,ri);
+            attenuation = vec3(1.0);
+            break;
+        }
         default: {
             attenuation = ERROR_COLOR;
             scatter_dir = vec3(0.0, 1.0, 0.0);
@@ -212,6 +217,7 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
         }
     }
 
+    //新しいレイを作成
     scattered = Ray(hitRecord.point, normalize(scatter_dir));
 
     return true;
@@ -247,7 +253,7 @@ vec3 launch_ray(Ray ray) {
     //const int max_depth=10;
     //最初のレイを飛ばす
     push_env(Environment(STATE_CALLED, ray, vec3(1.0), max_depth));
-    vec3 result = ERROR_COLOR;
+    vec3 result = vec3(1.0);
 
     //スタックが空になるまで（8を超えたらそれは想定外の挙動ということで処理）
     while(0 < env_stack_count && env_stack_count <= STACK_MAX) {
@@ -258,7 +264,8 @@ vec3 launch_ray(Ray ray) {
             case STATE_CALLED: {
             //深さが限界に達していたら終了
                 if(env.depth <= 0) {
-                    result = vec3(0.0);
+                    //result = vec3(0.0);
+                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.depth));
                     break;
                 }
 
@@ -296,7 +303,7 @@ vec3 launch_ray(Ray ray) {
                     vec4 seed = vec4(vec3(TexCoord.xy, use_record.ray_pram) * 1000.0, float(env.depth));
                     Ray new_ray;
                     vec3 attenuation;
-                    scatter(use_record.material, ray, use_record, attenuation, new_ray, seed);
+                    scatter(use_record.material, env.ray, use_record, attenuation, new_ray, seed);
                     vec3 new_accum_attenuation = env.accum_attenuation * attenuation;
                     push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.depth));
                     push_env(Environment(STATE_CALLED, new_ray, new_accum_attenuation, env.depth - 1));
@@ -320,8 +327,8 @@ vec3 launch_ray(Ray ray) {
     //ガンマ補正をかける
     result = linear_to_gamma(result);
 
-    if(env_stack_count > STACK_MAX)
-        result = ERROR_COLOR;
+    // if(env_stack_count > STACK_MAX)
+    //     result = ERROR_COLOR;
 
     return result;
 }

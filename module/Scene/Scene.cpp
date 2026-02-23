@@ -23,9 +23,8 @@ Scene::Scene()
             .center = glm::vec3(-2.0f, 0.0f, 1.0f),
             .radius = 1.0f,
             .material = Material{
-                .material_type = MATERIAL_METAL,
-                .albedo = glm::vec3(0.8f, 0.8f, 0.8f),
-                .fuzz = 0.3f}});
+                .material_type = MATERIAL_DIELECTRIC,
+                .refraction_index = 1.5f}});
     addPrimitive(
         Sphere{
             .center = glm::vec3(2.0f, 0.0f, 1.0f),
@@ -85,7 +84,8 @@ void Scene::createMaterialMap()
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
                 .material_type = sphere.material.material_type,
-                .albedo = sphere.material.albedo};
+                .refraction_index=sphere.material.refraction_index
+            };
             break;
         }
         default:
