@@ -23,6 +23,7 @@ public:
     void Move(glm::vec3 movement)
     {
         cameraUBO.position += movement;
+        is_changed = true;
     }
 
     void Zoom(float movement)
@@ -37,11 +38,20 @@ public:
             newFOV = 30.0f;
         }
         cameraUBO.vfov = newFOV;
+        is_changed = true;
     }
 
     void SetAspectRatio(float ratio)
     {
         cameraUBO.aspect_ratio = ratio;
+    }
+    void ChangeFlagOff()
+    {
+        is_changed = false;
+    }
+    bool IsChanged() const
+    {
+        return is_changed;
     }
 
     UBO_Camera *GetUBO()
@@ -51,4 +61,5 @@ public:
 
 private:
     UBO_Camera cameraUBO;
+    bool is_changed = false;
 };

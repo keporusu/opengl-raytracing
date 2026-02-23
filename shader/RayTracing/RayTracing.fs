@@ -114,6 +114,8 @@ in vec2 TexCoord;
 // uniform
 //////////////////////////////////////////////////////
 uniform float u_frame;
+uniform int ray_sample_number;
+uniform int reset_frame_buffer;
 layout(std140) uniform PrimitivesBlock {
     int sphere_count;
     Sphere spheres[SPHERE_MAX];
@@ -320,7 +322,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
                 }
             //当たった場合
                 else {
-                    vec4 seed = vec4(TexCoord.xy*use_record.ray_pram * 10000.0,float(sample_number) ,float(env.depth));
+                    vec4 seed = vec4(TexCoord.xy * use_record.ray_pram * 10000.0, float(sample_number), float(env.depth));
                     Ray new_ray;
                     vec3 attenuation;
                     scatter(use_record.material, env.ray, use_record, attenuation, new_ray, seed);
@@ -365,20 +367,31 @@ void main() {
     float viewport_x = (TexCoord.x * 4.0 - 1.0) * h * focal_length * aspect_ratio;
     vec3 viewport_loc = vec3(viewport_x, viewport_y, camera_pos.z - focal_length);
 
-    float samples_per_pixel = 50;
-    vec3 color_accum = vec3(0.0);
-    for(int i = 0; i < samples_per_pixel; i++) {
-        //目標発射地点
-        vec2 offs = rand2(vec4(viewport_x * 1000.0, viewport_y * 1000.0, float(i), 31.4159265358));
-        offs = (offs * 2.0 - 1.0) * 0.001;
-        vec3 launch_point = viewport_loc + vec3(offs, 0.0);
-        //レイの作成
-        vec3 ray_dir = normalize(launch_point - camera_pos);
-        Ray ray = Ray(camera_pos, ray_dir);
-        //レイの発射
-        color_accum += launch_ray(ray, i);
-    }
+    vec2 offs = rand2(vec4(viewport_x * 1000.0, viewport_y * 1000.0, float(ray_sample_number), 31.4159265358));
+    offs = (offs * 2.0 - 1.0) * 0.001;
+    vec3 launch_point = viewport_loc + vec3(offs, 0.0);
+    //レイの作成
+    vec3 ray_dir = normalize(launch_point - camera_pos);
+    Ray ray = Ray(camera_pos, ray_dir);
+    //レイの発射
+    vec3 sample_color = launch_ray(ray, ray_sample_number);
+    // glBlendFunc(GL_ONE, GL_ONE)で累積加算されるため、そのまま出力する
+    color = sample_color;
 
-    color = color_accum / float(samples_per_pixel);
+    // float samples_per_pixel = 50;
+    // vec3 color_accum = vec3(0.0);
+    // for(int i = 0; i < samples_per_pixel; i++) {
+    //     //目標発射地点
+    //     vec2 offs = rand2(vec4(viewport_x * 1000.0, viewport_y * 1000.0, float(i), 31.4159265358));
+    //     offs = (offs * 2.0 - 1.0) * 0.001;
+    //     vec3 launch_point = viewport_loc + vec3(offs, 0.0);
+    //     //レイの作成
+    //     vec3 ray_dir = normalize(launch_point - camera_pos);
+    //     Ray ray = Ray(camera_pos, ray_dir);
+    //     //レイの発射
+    //     color_accum += launch_ray(ray, i);
+    // }
+
+    // color = color_accum / float(samples_per_pixel);
 
 }
