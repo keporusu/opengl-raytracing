@@ -16,6 +16,7 @@
 #define WINDOW_HEIGHT 600
 
 void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
+void scrollCallback(GLFWwindow *window, double x_offset, double y_offset);
 void processInput(GLFWwindow *window, Camera &camera);
 
 int main()
@@ -59,11 +60,6 @@ int main()
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
-
-    ////
-    // Viewport
-    ////
-    glfwSetFramebufferSizeCallback(window.get(), frameBufferSizeCallback);
 
     ////
     // 蓄積用テクスチャ用意
@@ -147,6 +143,13 @@ int main()
     raytracing_program.BindUniformBlock("MaterialsBlock", 2);
 
     ////
+    // コールバック
+    ////
+    glfwSetFramebufferSizeCallback(window.get(), frameBufferSizeCallback);
+    glfwSetWindowUserPointer(window.get(), &camera);
+    glfwSetScrollCallback(window.get(), scrollCallback);
+
+    ////
     // Rendering Loop
     ////
     int frame = 0;
@@ -221,6 +224,13 @@ int main()
 void frameBufferSizeCallback(GLFWwindow *window, int width, int height)
 {
     glViewport(0, 0, width, height);
+}
+void scrollCallback(GLFWwindow *window,double x_offset,double y_offset){
+    Camera *camera = static_cast<Camera*>(glfwGetWindowUserPointer(window));
+    if (camera)
+    {
+        camera->Zoom((float)y_offset*0.2f);
+    }
 }
 
 void processInput(GLFWwindow *window, Camera &camera)

@@ -5,23 +5,38 @@ struct UBO_Camera
 {
     glm::vec3 position;
     float aspect_ratio;
+    float vfov;
     int max_depth;
 };
 
 class Camera
 {
 public:
-    Camera(glm::vec3 position, float aspectRatio, int max_depth = 10)
+    Camera(glm::vec3 position, float aspectRatio, float vfov = 90.0, int max_depth = 10)
     {
         this->cameraUBO.position = position;
         this->cameraUBO.aspect_ratio = aspectRatio;
         this->cameraUBO.max_depth = max_depth;
-        //this->cameraUBO
+        this->cameraUBO.vfov = vfov;
     }
 
     void Move(glm::vec3 movement)
     {
         cameraUBO.position += movement;
+    }
+
+    void Zoom(float movement)
+    {
+        float newFOV = cameraUBO.vfov + movement;
+        if (newFOV > 120.0f)
+        {
+            newFOV = 120.0f;
+        }
+        if (newFOV < 30.0f)
+        {
+            newFOV = 30.0f;
+        }
+        cameraUBO.vfov = newFOV;
     }
 
     void SetAspectRatio(float ratio)

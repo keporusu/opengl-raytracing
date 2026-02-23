@@ -3,6 +3,8 @@
 // utility
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float infinity = 3.402823e+38;
+const float PI = 3.14159265359;
+
 vec3 linear_to_gamma(vec3 c) {
     return sqrt(max(c, 0.0));
 }
@@ -112,16 +114,17 @@ in vec2 TexCoord;
 // uniform
 //////////////////////////////////////////////////////
 uniform float u_frame;
-const float focal_length = 1.0;
 layout(std140) uniform PrimitivesBlock {
     int sphere_count;
     Sphere spheres[SPHERE_MAX];
     // int plane_count;
     // Plane planes[PLANE_MAX];
 };
+const float focal_length = 1.0;
 layout(std140) uniform CameraBlock {
     vec3 camera_pos;
     float aspect_ratio;
+    float vfov;
     int max_depth;
 };
 layout(std140) uniform MaterialsBlock {
@@ -217,7 +220,7 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
             float cos_theta = min(dot(-ray.direction, hitRecord.normal), 1.0);
             float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
             //全反射
-            if(ri * sin_theta > 1.0 || reflectance(cos_theta,ri)>rand(seed)) {
+            if(ri * sin_theta > 1.0 || reflectance(cos_theta, ri) > rand(seed)) {
                 scatter_dir = reflect(ray.direction, hitRecord.normal);
             }
             //透過可能
@@ -354,9 +357,12 @@ vec3 launch_ray(Ray ray) {
 //メイン（レイ作成・発射とサンプル平均処理）
 void main() {
 
+    //カメラ視野角
+    float h = tan(vfov * PI / 180.0 / 2.0);
+
     //座標系の作成
-    float viewport_x = (TexCoord.x * 4.0 - 1.0) * aspect_ratio;
-    float viewport_y = TexCoord.y * 4.0 - 1.0;
+    float viewport_y = (TexCoord.y * 4.0 - 1.0) * h * focal_length;
+    float viewport_x = (TexCoord.x * 4.0 - 1.0) * h * focal_length * aspect_ratio;
     vec3 viewport_loc = vec3(viewport_x, viewport_y, camera_pos.z - focal_length);
 
     float samples_per_pixel = 20;
