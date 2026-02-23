@@ -16,6 +16,7 @@ public:
         this->cameraUBO.position = position;
         this->cameraUBO.aspect_ratio = aspectRatio;
         this->cameraUBO.max_depth = max_depth;
+        //this->cameraUBO
     }
 
     void Move(glm::vec3 movement)

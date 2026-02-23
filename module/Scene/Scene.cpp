@@ -3,6 +3,7 @@
 // シーン記述
 Scene::Scene()
 {
+    //真ん中の球
     addPrimitive(
         Sphere{
             .center = glm::vec3(0.0f, 0.0f, 1.0f),
@@ -11,6 +12,7 @@ Scene::Scene()
                 .material_type = MATERIAL_LAMBERTIAN,
                 .albedo = glm::vec3(0.1f, 0.2f, 0.5f),
             }});
+    //地面
     addPrimitive(
         Sphere{
             .center = glm::vec3(0.0f, -101.f, 1.0f),
@@ -18,6 +20,7 @@ Scene::Scene()
             .material = Material{
                 .material_type = MATERIAL_LAMBERTIAN,
                 .albedo = glm::vec3(0.8f, 0.8f, 0.0f)}});
+    //ガラス
     addPrimitive(
         Sphere{
             .center = glm::vec3(-2.0f, 0.0f, 1.0f),
@@ -25,6 +28,15 @@ Scene::Scene()
             .material = Material{
                 .material_type = MATERIAL_DIELECTRIC,
                 .refraction_index = 1.5f}});
+    //ガラス（中）
+    addPrimitive(
+        Sphere{
+            .center = glm::vec3(-2.0f, 0.0f, 1.0f),
+            .radius = 0.8f,
+            .material = Material{
+                .material_type = MATERIAL_DIELECTRIC,
+                .refraction_index = 1.0f/1.5f}});
+
     addPrimitive(
         Sphere{
             .center = glm::vec3(2.0f, 0.0f, 1.0f),

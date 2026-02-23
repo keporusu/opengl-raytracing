@@ -23,26 +23,26 @@ uint esgtsa_orig(uint seed) {
     return s;
 } 
 //スカラー0~1
-float esgtsa(vec4 v) {
+float rand(vec4 v) {
     return float(esgtsa_orig(esgtsa_orig(esgtsa_orig(esgtsa_orig(uint(v.x)) + uint(v.y)) + uint(v.z)) + uint(v.w))) * 2.3283064365386962890625e-10;
 }
 //2次元0~1
-vec2 esgtsa2(vec4 v) {
-    float r1 = esgtsa(v);
-    float r2 = esgtsa(vec4(v.x, v.y, v.z, v.w + 1.0));
+vec2 rand2(vec4 v) {
+    float r1 = rand(v);
+    float r2 = rand(vec4(v.x, v.y, v.z, v.w + 1.0));
     return vec2(r1, r2);
 }
 //3次元0~1
-vec3 esgtsa3(vec4 v) {
-    float r1 = esgtsa(v);
-    float r2 = esgtsa(vec4(v.x, v.y, v.z, v.w + 1.0));
-    float r3 = esgtsa(vec4(v.x, v.y, v.z, v.w + 2.0));
+vec3 rand3(vec4 v) {
+    float r1 = rand(v);
+    float r2 = rand(vec4(v.x, v.y, v.z, v.w + 1.0));
+    float r3 = rand(vec4(v.x, v.y, v.z, v.w + 2.0));
     return vec3(r1, r2, r3);
 }
 //３次元ベクトル-1~1
 vec3 random_unit_vector(vec4 v) {
     for(int i = 0; i < 100; i++) {
-        vec3 p = esgtsa3(vec4(v.x, v.y, v.z, v.w + float(i) * 3.0)) * 2.0 - 1.0;
+        vec3 p = rand3(vec4(v.x, v.y, v.z, v.w + float(i) * 3.0)) * 2.0 - 1.0;
         float lensq = dot(p, p);
         if(1e-160 < lensq && lensq <= 1.0)
             return p / sqrt(lensq);
@@ -171,6 +171,14 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 散乱処理（マテリアルの挙動）
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Schlick近似
+float reflectance(float cosine, float refraction_index) {
+    // Use Schlick's approximation for reflectance.
+    float r0 = (1 - refraction_index) / (1 + refraction_index);
+    r0 = r0 * r0;
+    return r0 + (1 - r0) * pow((1 - cosine), 5);
+}
+//マテリアルによる散乱処理
 bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, out Ray scattered, vec4 seed) {
 
     //今回使うマテリアル
@@ -206,7 +214,16 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
             //glslでは相対屈折率の逆数を取る
             float abs_ri = use_material.refraction_index;
             float ri = hitRecord.front_face ? 1.0 / abs_ri : abs_ri;
-            scatter_dir = refract(ray.direction, hitRecord.normal,ri);
+            float cos_theta = min(dot(-ray.direction, hitRecord.normal), 1.0);
+            float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+            //全反射
+            if(ri * sin_theta > 1.0 || reflectance(cos_theta,ri)>rand(seed)) {
+                scatter_dir = reflect(ray.direction, hitRecord.normal);
+            }
+            //透過可能
+            else {
+                scatter_dir = refract(ray.direction, hitRecord.normal, ri);
+            }
             attenuation = vec3(1.0);
             break;
         }
@@ -346,7 +363,7 @@ void main() {
     vec3 color_accum = vec3(0.0);
     for(int i = 0; i < samples_per_pixel; i++) {
         //目標発射地点
-        vec2 offs = esgtsa2(vec4(viewport_x * 100.0, viewport_y * 100.0, float(i), 31.4159265358));
+        vec2 offs = rand2(vec4(viewport_x * 100.0, viewport_y * 100.0, float(i), 31.4159265358));
         offs = (offs * 2.0 - 1.0) * 0.001;
         vec3 launch_point = viewport_loc + vec3(offs, 0.0);
         //レイの作成
