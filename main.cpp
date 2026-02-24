@@ -17,6 +17,7 @@
 
 void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
 void scrollCallback(GLFWwindow *window, double x_offset, double y_offset);
+void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 void processInput(GLFWwindow *window, Camera &camera);
 
 int main()
@@ -148,6 +149,7 @@ int main()
     glfwSetFramebufferSizeCallback(window.get(), frameBufferSizeCallback);
     glfwSetWindowUserPointer(window.get(), &camera);
     glfwSetScrollCallback(window.get(), scrollCallback);
+    glfwSetKeyCallback(window.get(), keyCallback);
 
     ////
     // Rendering Loop
@@ -175,61 +177,69 @@ int main()
         {
             frame++;
 
+            // カメラ情報が変更されていたらサンプル数をリセット
             if (camera.IsChanged())
+            {
+                camera.ChangeFlagOff();
                 sample_count = 0;
+            }
             sample_count++;
         }
 
         ////
         // レンダリング
         ////
-        ////レイトレーシングパス
-        glBindFramebuffer(GL_FRAMEBUFFER, accumFBO); // フレームバッファの指定
-        
-        //////1サンプル目ならフレームバッファは初期化する
-        if (sample_count == 1)
+
+        // レイトレーシングパス////////////////
         {
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // この色で
-            glClear(GL_COLOR_BUFFER_BIT); // FrameBufferを初期化
+            glBindFramebuffer(GL_FRAMEBUFFER, accumFBO); // フレームバッファの指定
+
+            // 1サンプル目ならフレームバッファは初期化する
+            if (sample_count == 1)
+            {
+                glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // この色で
+                glClear(GL_COLOR_BUFFER_BIT);         // FrameBufferを初期化
+            }
+
+            // ブレンディング有効化, ブレンド設定（フレームバッファに足す）
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE, GL_ONE);
+
+            // シェーダ
+            raytracing_program.Use();
+            raytracing_program.SetUniform("ray_sample_number", sample_count);
+            raytracing_program.SetUniform("u_frame", (float)frame);
+
+            // カメラUBO送信
+            glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
+            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_Camera), camera.GetUBO());
+            // 描画
+            glBindVertexArray(VAO);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            glBindVertexArray(GL_NO_BINDING);
         }
+        /////////////////////////////////////////////////
 
-        //////ブレンディング有効化, ブレンド設定（フレームバッファに足す）
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE, GL_ONE);
+        // 描画パス////////////////////
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, GL_NO_BINDING); // デフォルトのフレームバッファに戻す
+            glDisable(GL_BLEND);
+            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT); // 画面を初期化
 
-        //////シェーダ
-        raytracing_program.Use();
-        raytracing_program.SetUniform("reset_frame_buffer", camera.IsChanged() ? 1u : 0u);
-        raytracing_program.SetUniform("ray_sample_number", (unsigned)sample_count);
-        raytracing_program.SetUniform("u_frame", (float)frame);
-
-        //////カメラUBO送信
-        glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_Camera), camera.GetUBO());
-        //////描画
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(GL_NO_BINDING);
-
-        ////描画パス
-        glBindFramebuffer(GL_FRAMEBUFFER, GL_NO_BINDING); // デフォルトのフレームバッファに戻す
-        glDisable(GL_BLEND);
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT); // 画面を初期化
-
-        //////シェーダ
-        output_program.Use();
-        output_program.SetUniform("accumTexture", 0u);
-        output_program.SetUniform("ray_sample_number", (unsigned)sample_count);
-        //////テクスチャをバインドしてシェーダーに渡す
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, accumTexture);
-        //////描画
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(GL_NO_BINDING);
-
-        camera.ChangeFlagOff();
+            // シェーダ
+            output_program.Use();
+            output_program.SetUniform("accumTexture", 0u);
+            output_program.SetUniform("ray_sample_number", sample_count);
+            // テクスチャをバインドしてシェーダーに渡す
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, accumTexture);
+            // 描画
+            glBindVertexArray(VAO);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            glBindVertexArray(GL_NO_BINDING);
+        }
+        //////////////////////////////////////////////////
 
         // glfw: イベントのトリガをチェック、フレームバッファの入れ替え（ここで初めて画面に見える）
         glfwPollEvents();
@@ -239,32 +249,52 @@ int main()
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
+    raytracing_program.Delete();
     output_program.Delete();
 
     glfwTerminate();
     return 0;
 }
 
+// フレームサイズ
 void frameBufferSizeCallback(GLFWwindow *window, int width, int height)
 {
     glViewport(0, 0, width, height);
 }
+// スクロール
 void scrollCallback(GLFWwindow *window, double x_offset, double y_offset)
 {
+    // vfov
     Camera *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
     if (camera)
     {
         camera->Zoom((float)y_offset * 0.2f);
     }
 }
+// キー
+void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_R && action == GLFW_PRESS)
+    {
+        // カメラリセット
+        Camera *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
+        if (camera)
+        {
+            camera->Reset();
+        }
+    }
+}
 
 void processInput(GLFWwindow *window, Camera &camera)
 {
+
+    // 終了キー
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     {
         glfwSetWindowShouldClose(window, true);
     }
 
+    // 移動
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
         camera.Move(glm::vec3(-0.01f, 0.0f, 0.0f));
@@ -282,6 +312,7 @@ void processInput(GLFWwindow *window, Camera &camera)
         camera.Move(glm::vec3(0.0f, 0.0f, 0.01f));
     }
 
+    // viewoprtサイズ
     int viewport_width, viewport_height;
     glfwGetWindowSize(window, &viewport_width, &viewport_height);
     camera.SetAspectRatio(float(viewport_width) / float(viewport_height));

@@ -7,6 +7,8 @@ struct UBO_Camera
     float aspect_ratio;
     float vfov;
     int max_depth;
+    float defocus_angle;
+    float focus_dist;
 };
 
 class Camera
@@ -18,6 +20,11 @@ public:
         this->cameraUBO.aspect_ratio = aspectRatio;
         this->cameraUBO.max_depth = max_depth;
         this->cameraUBO.vfov = vfov;
+        this->cameraUBO.defocus_angle = 5.0f;
+        this->cameraUBO.focus_dist = 1.0f;
+
+        InitialPosition = position;
+        InitialVfov = vfov;
     }
 
     void Move(glm::vec3 movement)
@@ -54,6 +61,13 @@ public:
         return is_changed;
     }
 
+    void Reset()
+    {
+        cameraUBO.position = InitialPosition;
+        cameraUBO.vfov = InitialVfov;
+        is_changed = true;
+    }
+
     UBO_Camera *GetUBO()
     {
         return &cameraUBO;
@@ -62,4 +76,7 @@ public:
 private:
     UBO_Camera cameraUBO;
     bool is_changed = false;
+
+    glm::vec3 InitialPosition;
+    float InitialVfov;
 };

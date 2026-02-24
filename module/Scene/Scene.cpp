@@ -36,7 +36,7 @@ Scene::Scene()
             .material = Material{
                 .material_type = MATERIAL_DIELECTRIC,
                 .refraction_index = 1.0f/1.5f}});
-
+    //金属
     addPrimitive(
         Sphere{
             .center = glm::vec3(2.0f, 0.0f, 1.0f),

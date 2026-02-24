@@ -24,7 +24,8 @@ public:
     void SetUniform(const std::string &name, const float value);                        // スカラー入力
     void SetUniform(const std::string &name, float value1, float value2, float value3); // ３次元入力
     void SetUniform(const std::string &name, glm::vec3 value);                          // ３次元入力
-    void SetUniform(const std::string &name, unsigned int value);                       // 整数スカラー入力
+    void SetUniform(const std::string &name, unsigned int value);
+    void SetUniform(const std::string &name, int value);                       // 整数スカラー入力
     void SetUniform(const std::string &name, glm::mat4 value);                          // 行列
 
     void BindUniformBlock(const std::string &name, unsigned bindingPoint);

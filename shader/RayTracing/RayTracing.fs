@@ -41,7 +41,7 @@ vec3 rand3(vec4 v) {
     float r3 = rand(vec4(v.x, v.y, v.z, v.w + 2.0));
     return vec3(r1, r2, r3);
 }
-//３次元ベクトル-1~1
+//３次元ベクトル-1~1（長さは1以下）
 vec3 random_unit_vector(vec4 v) {
     for(int i = 0; i < 100; i++) {
         vec3 p = rand3(vec4(v.x, v.y, v.z, v.w + float(i) * 3.0)) * 2.0 - 1.0;
@@ -61,6 +61,17 @@ vec3 random_on_hemisphere(vec3 normal, vec4 v) {
     }
     return vec3(0.0, 1.0, 0.0);
 }
+//2次元ベクトル-1~1（長さは1以下）
+vec2 random_in_unit_disk(vec4 v) {
+    for(int i = 0; i < 100; i++) {
+        vec2 p = rand2(vec4(v.x, v.y, v.z, v.w + float(i) * 3.0)) * 2.0 - 1.0;
+        if(dot(p,p) < 1) {
+            return p;
+        }
+    }
+    return vec2(0.0, 1.0);
+}
+//3次元
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////
@@ -115,7 +126,6 @@ in vec2 TexCoord;
 //////////////////////////////////////////////////////
 uniform float u_frame;
 uniform int ray_sample_number;
-uniform int reset_frame_buffer;
 layout(std140) uniform PrimitivesBlock {
     int sphere_count;
     Sphere spheres[SPHERE_MAX];
@@ -128,6 +138,8 @@ layout(std140) uniform CameraBlock {
     float aspect_ratio;
     float vfov;
     int max_depth;
+    float defous_angle;
+    float focus_dist;
 };
 layout(std140) uniform MaterialsBlock {
     int material_count;
@@ -363,16 +375,25 @@ void main() {
     float h = tan(vfov * PI / 180.0 / 2.0);
 
     //座標系の作成
-    float viewport_y = (TexCoord.y * 4.0 - 1.0) * h * focal_length;
-    float viewport_x = (TexCoord.x * 4.0 - 1.0) * h * focal_length * aspect_ratio;
-    vec3 viewport_loc = vec3(viewport_x, viewport_y, camera_pos.z - focal_length);
+    float viewport_y = (TexCoord.y * 4.0 - 1.0) * h * focus_dist;
+    float viewport_x = (TexCoord.x * 4.0 - 1.0) * h * focus_dist * aspect_ratio;
+    vec3 viewport_loc = vec3(viewport_x, viewport_y, camera_pos.z - focus_dist);
 
-    vec2 offs = rand2(vec4(viewport_x * 1000.0, viewport_y * 1000.0, float(ray_sample_number), 31.4159265358));
-    offs = (offs * 2.0 - 1.0) * 0.001;
-    vec3 launch_point = viewport_loc + vec3(offs, 0.0);
+    //レイの目標地点（サンプル）
+    vec2 aim_offs = rand2(vec4(viewport_x * 1000.0, viewport_y * 1000.0, float(ray_sample_number), 31.4159265358));
+    aim_offs = (aim_offs * 2.0 - 1.0) * 0.001;
+    vec3 aim_point = viewport_loc + vec3(aim_offs, 0.0);
+
+    //レイの発射地点（ぼかし）
+    float defous_radius = focus_dist * tan(radians(defous_angle / 2.0));
+    vec2 launch_offs = random_in_unit_disk(vec4(viewport_x * 1000.0, viewport_y * 1000.0, float(ray_sample_number) + 2.0, 31.4159265358)+58.1);
+    launch_offs *= defous_radius;
+    vec3 launch_point = camera_pos + vec3(launch_offs, 0.0);
+
     //レイの作成
-    vec3 ray_dir = normalize(launch_point - camera_pos);
-    Ray ray = Ray(camera_pos, ray_dir);
+    vec3 ray_dir = normalize(aim_point - launch_point);
+    Ray ray = Ray(launch_point, ray_dir);
+
     //レイの発射
     vec3 sample_color = launch_ray(ray, ray_sample_number);
     // glBlendFunc(GL_ONE, GL_ONE)で累積加算されるため、そのまま出力する
