@@ -39,10 +39,10 @@ public:
         is_changed = true;
     }
 
-    void OrbitLeft(float deltaTIme) { Orbit(deltaTIme, 1.0f, 0.0f); }
-    void OrbitRight(float deltaTime) { Orbit(deltaTime, -1.0f, 0.0f); }
-    void OrbitUp(float deltaTime) { Orbit(deltaTime, 0.0f, -1.0f); }
-    void OrbitDown(float deltaTime) { Orbit(deltaTime, 0.0f, 1.0f); };
+    void OrbitLeft(float deltaTIme) { Orbit(deltaTIme, -1.0f, 0.0f); }
+    void OrbitRight(float deltaTime) { Orbit(deltaTime, 1.0f, 0.0f); }
+    void OrbitUp(float deltaTime) { Orbit(deltaTime, 0.0f, 1.0f); }
+    void OrbitDown(float deltaTime) { Orbit(deltaTime, 0.0f, -1.0f); };
     void Orbit(float deltaTime, float horizontalDir, float verticalDir)
     {
         orbitPointHorizontal += deltaTime * horizontalDir;
@@ -110,7 +110,9 @@ public:
 
     void Reset()
     {
-        cameraUBO.position = {sin(initialOrbitPointHorizontal) * radius, sin(initialOrbitPointVertical) * radius, cos(initialOrbitPointHorizontal) * radius};
+        orbitPointHorizontal=initialOrbitPointHorizontal;
+        orbitPointVertical=initialOrbitPointVertical;
+        cameraUBO.position = {sin(orbitPointHorizontal) * radius, sin(orbitPointVertical) * radius, cos(orbitPointHorizontal) * radius};
         cameraUBO.vfov = initialVfov;
         cameraUBO.focus_dist = initialFocusDist;
         cameraUBO.defocus_angle = initialDefocusAngle;
