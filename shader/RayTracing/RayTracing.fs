@@ -4,6 +4,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float infinity = 3.402823e+38;
 const float PI = 3.14159265359;
+const vec3 v_up = vec3(0.0, 1.0, 0.0);
 
 vec3 linear_to_gamma(vec3 c) {
     return sqrt(max(c, 0.0));
@@ -371,7 +372,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
 //メイン（レイ作成・発射とサンプル平均処理）
 void main() {
 
-    //カメラ視野角
+    //カメラ視野角（Viewportの高さ）
     float h = tan(vfov * PI / 180.0 / 2.0);
 
     //座標系の作成

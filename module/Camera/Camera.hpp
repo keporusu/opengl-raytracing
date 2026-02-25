@@ -1,3 +1,4 @@
+#pragma once
 #include "../../third_party/glm/glm.hpp"
 #include "../../third_party/glm/gtc/matrix_transform.hpp"
 
@@ -14,29 +15,57 @@ struct UBO_Camera
 class Camera
 {
 public:
-    Camera(glm::vec3 position, float aspectRatio, float vfov = 90.0, int max_depth = 10)
+    Camera(float orbitRadius, float aspectRatio, float vfov = 90.0, int max_depth = 10)
     {
-        this->cameraUBO.position = position;
+        radius = orbitRadius;
+        float horizontalRadius = cos(orbitPointVertical) * radius;
+
+        initialVfov = vfov;
+        initialFocusDist = 1.0f;
+        initialDefocusAngle = 1.0f;
+
+        this->cameraUBO.position = {sin(orbitPointHorizontal) * horizontalRadius, sin(orbitPointVertical) * radius, cos(orbitPointHorizontal) * horizontalRadius};
         this->cameraUBO.aspect_ratio = aspectRatio;
         this->cameraUBO.max_depth = max_depth;
         this->cameraUBO.vfov = vfov;
-        this->cameraUBO.defocus_angle = 1.0f;
-        this->cameraUBO.focus_dist = 1.0f;
-
-        InitialPosition = position;
-        InitialVfov = vfov;
-        InitialFocusDist = 1.0f;
-        InitialDefocusAngle = 1.0f;
+        this->cameraUBO.defocus_angle = initialDefocusAngle;
+        this->cameraUBO.focus_dist = initialFocusDist;
     }
 
+    // 水平移動
     void Move(glm::vec3 movement)
     {
         cameraUBO.position += movement;
         is_changed = true;
     }
 
+    void OrbitLeft(float deltaTIme) { Orbit(deltaTIme, 1.0f, 0.0f); }
+    void OrbitRight(float deltaTime) { Orbit(deltaTime, -1.0f, 0.0f); }
+    void OrbitUp(float deltaTime) { Orbit(deltaTime, 0.0f, -1.0f); }
+    void OrbitDown(float deltaTime) { Orbit(deltaTime, 0.0f, 1.0f); };
+    void Orbit(float deltaTime, float horizontalDir, float verticalDir)
+    {
+        orbitPointHorizontal += deltaTime * horizontalDir;
+        orbitPointVertical += deltaTime * verticalDir;
+        // 90度（真上・真下）に到達する直前で止める
+        float limit = glm::radians(89.0f);
+        orbitPointVertical = glm::clamp(orbitPointVertical, -limit, limit);
+
+        // 水平方向の半径を計算（縦回転の影響で、中心軸に寄る分を考慮）
+        float horizontalRadius = cos(orbitPointVertical) * radius;
+
+        // 座標に代入
+        cameraUBO.position.x = sin(orbitPointHorizontal) * horizontalRadius;
+        cameraUBO.position.y = sin(orbitPointVertical) * radius;
+        cameraUBO.position.z = cos(orbitPointHorizontal) * horizontalRadius;
+
+        is_changed = true;
+    };
+
+    // 視野角変更
     void Zoom(float movement)
     {
+
         float newFOV = cameraUBO.vfov + movement;
         if (newFOV > 120.0f)
         {
@@ -46,8 +75,12 @@ public:
         {
             newFOV = 30.0f;
         }
-        cameraUBO.vfov = newFOV;
-        is_changed = true;
+
+        if (abs(cameraUBO.vfov - newFOV) > 0.1f)
+        {
+            is_changed = true;
+            cameraUBO.vfov = newFOV;
+        }
     }
 
     void SetDefocusAngle(float defocus_angle)
@@ -77,10 +110,10 @@ public:
 
     void Reset()
     {
-        cameraUBO.position = InitialPosition;
-        cameraUBO.vfov = InitialVfov;
-        cameraUBO.focus_dist = InitialFocusDist;
-        cameraUBO.defocus_angle = InitialDefocusAngle;
+        cameraUBO.position = {sin(initialOrbitPointHorizontal) * radius, sin(initialOrbitPointVertical) * radius, cos(initialOrbitPointHorizontal) * radius};
+        cameraUBO.vfov = initialVfov;
+        cameraUBO.focus_dist = initialFocusDist;
+        cameraUBO.defocus_angle = initialDefocusAngle;
         is_changed = true;
     }
 
@@ -98,8 +131,15 @@ private:
     UBO_Camera cameraUBO;
     bool is_changed = false;
 
-    glm::vec3 InitialPosition;
-    float InitialVfov;
-    float InitialFocusDist;
-    float InitialDefocusAngle;
+    float initialVfov;
+    float initialFocusDist;
+    float initialDefocusAngle;
+    float initialOrbitPointHorizontal = 0.0f;
+    float initialOrbitPointVertical = 0.0f;
+
+    // カメラの公転移動の位置（radius）
+    float orbitPointHorizontal = 0.0f;
+    float orbitPointVertical = 0.0f;
+    // 公転移動の半径
+    float radius;
 };
