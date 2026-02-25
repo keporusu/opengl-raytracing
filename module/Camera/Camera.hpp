@@ -20,11 +20,13 @@ public:
         this->cameraUBO.aspect_ratio = aspectRatio;
         this->cameraUBO.max_depth = max_depth;
         this->cameraUBO.vfov = vfov;
-        this->cameraUBO.defocus_angle = 5.0f;
+        this->cameraUBO.defocus_angle = 1.0f;
         this->cameraUBO.focus_dist = 1.0f;
 
         InitialPosition = position;
         InitialVfov = vfov;
+        InitialFocusDist = 1.0f;
+        InitialDefocusAngle = 1.0f;
     }
 
     void Move(glm::vec3 movement)
@@ -48,6 +50,18 @@ public:
         is_changed = true;
     }
 
+    void SetDefocusAngle(float defocus_angle)
+    {
+        cameraUBO.defocus_angle = defocus_angle;
+        is_changed = true;
+    }
+
+    void SetFocusDist(float focus_dist)
+    {
+        cameraUBO.focus_dist = focus_dist;
+        is_changed = true;
+    }
+
     void SetAspectRatio(float ratio)
     {
         cameraUBO.aspect_ratio = ratio;
@@ -65,6 +79,8 @@ public:
     {
         cameraUBO.position = InitialPosition;
         cameraUBO.vfov = InitialVfov;
+        cameraUBO.focus_dist = InitialFocusDist;
+        cameraUBO.defocus_angle = InitialDefocusAngle;
         is_changed = true;
     }
 
@@ -73,10 +89,17 @@ public:
         return &cameraUBO;
     }
 
+    float GetFocusDist() const { return cameraUBO.focus_dist; }
+    float GetDefocusAngle() const { return cameraUBO.defocus_angle; }
+    glm::vec3 GetPosition() const { return cameraUBO.position; }
+    float GetVfov() const { return cameraUBO.vfov; }
+
 private:
     UBO_Camera cameraUBO;
     bool is_changed = false;
 
     glm::vec3 InitialPosition;
     float InitialVfov;
+    float InitialFocusDist;
+    float InitialDefocusAngle;
 };

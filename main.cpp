@@ -9,6 +9,7 @@
 #include "module/Shader/Shader.hpp"
 #include "module/Scene/Scene.hpp"
 #include "module/Camera/Camera.hpp"
+#include "module/ImGui/ImGuiController.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 
 #define GL_NO_BINDING 0
@@ -61,6 +62,11 @@ int main()
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
+
+    ////
+    //ImGui初期化
+    ////
+    ImGuiController imguiController(window.get());
 
     ////
     // 蓄積用テクスチャ用意
@@ -190,6 +196,7 @@ int main()
         // レンダリング
         ////
 
+        
         // レイトレーシングパス////////////////
         {
             glBindFramebuffer(GL_FRAMEBUFFER, accumFBO); // フレームバッファの指定
@@ -241,11 +248,16 @@ int main()
         }
         //////////////////////////////////////////////////
 
+        //imgui
+        imguiController.Draw(camera);
+
+
         // glfw: イベントのトリガをチェック、フレームバッファの入れ替え（ここで初めて画面に見える）
         glfwPollEvents();
         glfwSwapBuffers(window.get());
     }
 
+    imguiController.Destroy();
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
