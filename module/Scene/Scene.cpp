@@ -177,8 +177,8 @@ void Scene::many_balls()
 
     addPrimitive(
         Sphere{
-            .center = glm::vec3(0.0f,0.5f,0.0f),
-            .radius = 0.5f,
+            .center = glm::vec3(0.0f,1.0f,0.0f),
+            .radius = 1.0f,
             .material = Material{
                 .material_type = MATERIAL_DIELECTRIC,
                 .refraction_index = 1.5,
@@ -186,8 +186,8 @@ void Scene::many_balls()
 
     addPrimitive(
         Sphere{
-            .center = glm::vec3(2.0f,1.0f,2.0f),
-            .radius = 1.0f,
+            .center = glm::vec3(2.0f,0.5f,2.0f),
+            .radius = 0.5f,
             .material = Material{
                 .material_type = MATERIAL_DIELECTRIC,
                 .refraction_index = 1.5,
