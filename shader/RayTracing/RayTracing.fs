@@ -375,11 +375,17 @@ void main() {
     //カメラ視野角（Viewportの高さ）
     float h = tan(vfov * PI / 180.0 / 2.0);
 
-    //TODO: viewportのx方向y方向の単位ベクトルを作って、viewport_locを特定する
-    //座標系の作成（yを-1~1に合わせる）
+    // viewportのx方向y方向の単位ベクトルを作成、viewport_locを特定する
+    vec3 lookat = vec3(0, 0, 0); //（viewport上の位置）
+    vec3 z_unit = normalize(camera_pos - lookat);
+    vec3 y_unit = normalize(cross(v_up, z_unit));
+    vec3 x_unit = cross(z_unit, y_unit);
+
+    //今回のピクセルに対応するviewportの座標（yを-1~1に合わせる）
     float viewport_x = (TexCoord.y * 4.0 - 1.0) * h * focus_dist;
     float viewport_y = (TexCoord.x * 4.0 - 1.0) * h * focus_dist * aspect_ratio;
-    vec3 viewport_loc = vec3(viewport_y, viewport_x, camera_pos.z - focus_dist);
+    //vec3 viewport_loc = vec3(viewport_y, viewport_x, camera_pos.z - focus_dist);
+    vec3 viewport_loc = lookat + viewport_x * x_unit + viewport_y * y_unit;
 
     //シード値
     float seed_x = (TexCoord.x + 0.5) * 65536.0;
