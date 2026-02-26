@@ -36,8 +36,10 @@ void ImGuiController::Draw(Camera &camera)
     {
         glm::vec3 pos = camera.GetPosition();
         ImGui::Text("Position: (%.1f,%.1f,%.1f)", pos.x, pos.y, pos.z);
-        ImGui::Text("    vFOV: %.1f", camera.GetVfov());
-        float focusDist = camera.GetFocusDist(), defousAngle = camera.GetDefocusAngle();
+        // ImGui::Text("    vFOV: %.1f", camera.GetVfov());
+        float vfov = camera.GetVfov(), focusDist = camera.GetFocusDist(), defousAngle = camera.GetDefocusAngle();
+        if (ImGui::DragFloat("vFov", &vfov, 0.2f, 20.f, 120.f))
+            camera.SetVfov(vfov);
         if (ImGui::DragFloat("Focus Dist", &focusDist, 0.2f, 1.0f, 10.0f))
             camera.SetFocusDist(focusDist);
         if (ImGui::DragFloat("Defocus Angle", &defousAngle, 0.2f, 0.0f, 10.0f))

@@ -78,9 +78,9 @@ vec2 random_in_unit_disk(vec4 v) {
 //////////////////////////////////////////////////////
 // Const
 //////////////////////////////////////////////////////
-#define SPHERE_MAX 50
-#define PLANE_MAX 50
-#define MATERIAL_MAX 10
+#define SPHERE_MAX 60
+#define PLANE_MAX 60
+#define MATERIAL_MAX 60
 #define ERROR_COLOR vec3(1.0,0.0,1.0)
 
 //////////////////////////////////////////////////////
@@ -381,11 +381,14 @@ void main() {
     vec3 y_unit = normalize(cross(v_up, z_unit));
     vec3 x_unit = cross(z_unit, y_unit);
 
+    //viewportの中心位置
+    vec3 viewport_center = camera_pos - z_unit * focus_dist;
+
     //今回のピクセルに対応するviewportの座標（yを-1~1に合わせる）
     float viewport_x = (TexCoord.y * 4.0 - 1.0) * h * focus_dist;
     float viewport_y = (TexCoord.x * 4.0 - 1.0) * h * focus_dist * aspect_ratio;
     //vec3 viewport_loc = vec3(viewport_y, viewport_x, camera_pos.z - focus_dist);
-    vec3 viewport_loc = lookat + viewport_x * x_unit + viewport_y * y_unit;
+    vec3 viewport_loc = viewport_center + viewport_x * x_unit + viewport_y * y_unit;
 
     //シード値
     float seed_x = (TexCoord.x + 0.5) * 65536.0;
@@ -399,8 +402,9 @@ void main() {
     //レイの発射地点（ぼかし）
     float defous_radius = focus_dist * tan(radians(defous_angle / 2.0));
     vec2 launch_offs = random_in_unit_disk(vec4(seed_x, seed_y, float(ray_sample_number) + 2.0, 27.1828182845));
-    launch_offs *= defous_radius;
-    vec3 launch_point = camera_pos + vec3(launch_offs, 0.0);
+    vec3 launch_point = camera_pos 
+        + launch_offs.x * y_unit * defous_radius 
+        + launch_offs.y * x_unit * defous_radius;
 
     //レイの作成
     vec3 ray_dir = normalize(aim_point - launch_point);
@@ -410,21 +414,5 @@ void main() {
     vec3 sample_color = launch_ray(ray, ray_sample_number);
     // glBlendFunc(GL_ONE, GL_ONE)で累積加算されるため、そのまま出力する
     color = sample_color;
-
-    // float samples_per_pixel = 50;
-    // vec3 color_accum = vec3(0.0);
-    // for(int i = 0; i < samples_per_pixel; i++) {
-    //     //目標発射地点
-    //     vec2 offs = rand2(vec4(viewport_x * 1000.0, viewport_y * 1000.0, float(i), 31.4159265358));
-    //     offs = (offs * 2.0 - 1.0) * 0.001;
-    //     vec3 launch_point = viewport_loc + vec3(offs, 0.0);
-    //     //レイの作成
-    //     vec3 ray_dir = normalize(launch_point - camera_pos);
-    //     Ray ray = Ray(camera_pos, ray_dir);
-    //     //レイの発射
-    //     color_accum += launch_ray(ray, i);
-    // }
-
-    // color = color_accum / float(samples_per_pixel);
 
 }

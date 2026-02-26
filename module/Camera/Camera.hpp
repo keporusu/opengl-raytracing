@@ -17,12 +17,12 @@ class Camera
 public:
     Camera(float orbitRadius, float aspectRatio, float vfov = 90.0, int max_depth = 10)
     {
-        radius = orbitRadius;
+        initialRadius = radius = orbitRadius;
         float horizontalRadius = cos(orbitPointVertical) * radius;
 
         initialVfov = vfov;
         initialFocusDist = 1.0f;
-        initialDefocusAngle = 1.0f;
+        initialDefocusAngle = 0.0f;
 
         this->cameraUBO.position = {sin(orbitPointHorizontal) * horizontalRadius, sin(orbitPointVertical) * radius, cos(orbitPointHorizontal) * horizontalRadius};
         this->cameraUBO.aspect_ratio = aspectRatio;
@@ -51,36 +51,36 @@ public:
         float limit = glm::radians(89.0f);
         orbitPointVertical = glm::clamp(orbitPointVertical, -limit, limit);
 
-        // 水平方向の半径を計算（縦回転の影響で、中心軸に寄る分を考慮）
-        float horizontalRadius = cos(orbitPointVertical) * radius;
-
-        // 座標に代入
-        cameraUBO.position.x = sin(orbitPointHorizontal) * horizontalRadius;
-        cameraUBO.position.y = sin(orbitPointVertical) * radius;
-        cameraUBO.position.z = cos(orbitPointHorizontal) * horizontalRadius;
-
+        setPosition(orbitPointHorizontal, orbitPointVertical, radius);
         is_changed = true;
     };
 
-    // 視野角変更
-    void Zoom(float movement)
+    // 半径変更
+    void OrbitRadius(float change)
     {
-
-        float newFOV = cameraUBO.vfov + movement;
-        if (newFOV > 120.0f)
+        float newRadius = radius + change;
+        if (newRadius > 15.0f)
         {
-            newFOV = 120.0f;
+            newRadius = 15.0f;
         }
-        if (newFOV < 30.0f)
+        if (newRadius < 3.0f)
         {
-            newFOV = 30.0f;
+            newRadius = 3.0f;
         }
 
-        if (abs(cameraUBO.vfov - newFOV) > 0.1f)
+        if (abs(radius - newRadius) > 0.05f)
         {
             is_changed = true;
-            cameraUBO.vfov = newFOV;
+            radius = newRadius;
+            setPosition(orbitPointHorizontal, orbitPointVertical, radius);
         }
+    }
+
+    // 視野角変更
+    void SetVfov(float vfov)
+    {
+        cameraUBO.vfov = vfov;
+        is_changed = true;
     }
 
     void SetDefocusAngle(float defocus_angle)
@@ -110,9 +110,10 @@ public:
 
     void Reset()
     {
-        orbitPointHorizontal=initialOrbitPointHorizontal;
-        orbitPointVertical=initialOrbitPointVertical;
-        cameraUBO.position = {sin(orbitPointHorizontal) * radius, sin(orbitPointVertical) * radius, cos(orbitPointHorizontal) * radius};
+        radius = initialRadius;
+        orbitPointHorizontal = initialOrbitPointHorizontal;
+        orbitPointVertical = initialOrbitPointVertical;
+        setPosition(orbitPointHorizontal, orbitPointVertical, radius);
         cameraUBO.vfov = initialVfov;
         cameraUBO.focus_dist = initialFocusDist;
         cameraUBO.defocus_angle = initialDefocusAngle;
@@ -138,10 +139,19 @@ private:
     float initialDefocusAngle;
     float initialOrbitPointHorizontal = 0.0f;
     float initialOrbitPointVertical = 0.0f;
+    float initialRadius;
 
     // カメラの公転移動の位置（radius）
     float orbitPointHorizontal = 0.0f;
     float orbitPointVertical = 0.0f;
     // 公転移動の半径
     float radius;
+
+    void setPosition(float orbitPointH, float orbitPointV, float radius)
+    {
+        float horizontalRadius = cos(orbitPointV) * radius;
+        cameraUBO.position.x = sin(orbitPointH) * horizontalRadius;
+        cameraUBO.position.y = sin(orbitPointV) * radius;
+        cameraUBO.position.z = cos(orbitPointH) * horizontalRadius;
+    }
 };

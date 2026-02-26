@@ -12,9 +12,9 @@ public:
 
     void ApplyInput(Camera &camera, InputSystem &inputSystem)
     {
-        float deltaTime=inputSystem.GetDeltaTime();
+        float deltaTime = inputSystem.GetDeltaTime();
 
-        //公転移動
+        // 公転移動
         if (inputSystem.IsKeyDown(GLFW_KEY_D))
         {
             camera.OrbitRight(deltaTime);
@@ -32,11 +32,13 @@ public:
             camera.OrbitUp(deltaTime);
         }
 
-        //ズーム
-        camera.Zoom(inputSystem.GetScrollDelta() * deltaTime * 8.0f);
+        // 近づく
+        // camera.Zoom(inputSystem.GetScrollDelta() * deltaTime * 8.0f);
+        camera.OrbitRadius(inputSystem.GetScrollDelta() * deltaTime);
 
-        //リセット
-        if(inputSystem.IsKeyDown(GLFW_KEY_R)){
+        // リセット
+        if (inputSystem.IsKeyDown(GLFW_KEY_R))
+        {
             camera.Reset();
         }
     }

@@ -87,7 +87,7 @@ int main()
     std::vector<float> vertices = ModelLoader::GetQuadVertices();
     std::vector<unsigned int> indices = ModelLoader::GetQuadIndices();
     Scene scene;
-    Camera camera(6.0f, (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
+    Camera camera(4.0f, (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
 
     GLuint VBO, VAO, EBO;
 
@@ -293,7 +293,7 @@ void scrollCallback(GLFWwindow *window, double x_offset, double y_offset)
     Camera *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
     if (camera)
     {
-        camera->Zoom((float)y_offset * 0.2f);
+        //camera->Zoom((float)y_offset * 0.2f);
     }
 }
 // キー

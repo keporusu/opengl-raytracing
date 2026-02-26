@@ -21,4 +21,8 @@ private:
     int materialCount = 0;
     void addPrimitive(Sphere sphere);
     void createMaterialMap();
+
+    //シーン
+    void three_balls();
+    void many_balls();
 };
