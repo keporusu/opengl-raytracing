@@ -131,14 +131,41 @@ void Scene::many_balls()
                 .material_type = MATERIAL_LAMBERTIAN,
                 .albedo = glm::vec3(0.5f, 0.5f, 0.5f)}});
 
-    for (int i = -3; i <= 3; i++)
+    glm::vec3 glass_pos1 = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 glass_pos2 = glm::vec3(2.0f, 0.5f, 2.0f);
+
+    addPrimitive(
+        Sphere{
+            .center = glass_pos1,
+            .radius = 1.0f,
+            .material = Material{
+                .material_type = MATERIAL_DIELECTRIC,
+                .refraction_index = 1.5,
+            }});
+
+    addPrimitive(
+        Sphere{
+            .center = glass_pos2,
+            .radius = 0.5f,
+            .material = Material{
+                .material_type = MATERIAL_DIELECTRIC,
+                .refraction_index = 1.5,
+            }});
+
+    for (int i = -4; i <= 4; i++)
     {
-        for (int j = -3; j <= 3; j++)
+        for (int j = -4; j <= 4; j++)
         {
-            glm::vec3 pos = {i * 2.0f + 0.9f * dist(rng), 0.2f, j * 2.0f + 0.9f * dist(rng)};
+            glm::vec3 pos = {i * 1.6f + 0.9f * dist(rng), 0.2f, j * 1.6f + 0.9f * dist(rng)};
             float mat = dist(rng) * 0.5f + 0.5f;
             glm::vec3 albedo = glm::vec3(dist(rng), dist(rng), dist(rng)) * glm::vec3(0.5f) + glm::vec3(0.5f);
-            if (mat < 0.75f)
+
+            if (glm::length(glm::vec2(glass_pos1.x - pos.x, glass_pos1.y - pos.y)) < 0.6f)
+                continue;
+            if (glm::length(glm::vec2(glass_pos2.x - pos.x, glass_pos2.y - pos.y)) < 0.7f)
+                continue;
+
+            if (mat < 0.7f)
             {
                 addPrimitive(
                     Sphere{
@@ -174,22 +201,4 @@ void Scene::many_balls()
             }
         }
     }
-
-    addPrimitive(
-        Sphere{
-            .center = glm::vec3(0.0f,1.0f,0.0f),
-            .radius = 1.0f,
-            .material = Material{
-                .material_type = MATERIAL_DIELECTRIC,
-                .refraction_index = 1.5,
-            }});
-
-    addPrimitive(
-        Sphere{
-            .center = glm::vec3(2.0f,0.5f,2.0f),
-            .radius = 0.5f,
-            .material = Material{
-                .material_type = MATERIAL_DIELECTRIC,
-                .refraction_index = 1.5,
-            }});
 }

@@ -2,7 +2,7 @@
 #include "../../third_party/glm/gtc/matrix_transform.hpp"
 #include <iostream>
 #include <string>
-#define MAX_MATERIALS 60
+#define MAX_MATERIALS 100
 
 #define MATERIAL_LAMBERTIAN 1
 #define MATERIAL_METAL 2

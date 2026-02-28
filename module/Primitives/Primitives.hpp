@@ -1,8 +1,8 @@
 #include "../../third_party/glm/glm.hpp"
 #include "../../third_party/glm/gtc/matrix_transform.hpp"
 #include "../Materials/Materials.hpp"
-#define MAX_SPHERES 60
-#define MAX_PLANES 60
+#define MAX_SPHERES 100
+#define MAX_PLANES 100
 
 struct Sphere
 {
