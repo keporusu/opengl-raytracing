@@ -17,7 +17,7 @@ ImGuiController::ImGuiController(GLFWwindow *window)
     ImGui_ImplOpenGL3_Init("#version 330");
 }
 
-void ImGuiController::Draw(Camera &camera)
+void ImGuiController::Draw(Camera &camera, int sample_count)
 {
 
     // ImGuiフレーム開始
@@ -31,6 +31,7 @@ void ImGuiController::Draw(Camera &camera)
 
     ImGui::Begin("Render Data");
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+    ImGui::Text("Smaple Count: %d", sample_count);
 
     if (ImGui::CollapsingHeader("Camera"))
     {

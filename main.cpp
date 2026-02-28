@@ -18,11 +18,6 @@
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 
-void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
-void scrollCallback(GLFWwindow *window, double x_offset, double y_offset);
-void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
-void processInput(GLFWwindow *window, Camera &camera);
-
 int main()
 {
     glfwInit();
@@ -66,7 +61,7 @@ int main()
     }
 
     ////
-    //ImGui初期化
+    // ImGui初期化
     ////
     ImGuiController imguiController(window.get());
 
@@ -152,14 +147,6 @@ int main()
     raytracing_program.BindUniformBlock("MaterialsBlock", 2);
 
     ////
-    // コールバック
-    ////
-    // glfwSetFramebufferSizeCallback(window.get(), frameBufferSizeCallback);
-    // glfwSetWindowUserPointer(window.get(), &camera);
-    // glfwSetScrollCallback(window.get(), scrollCallback);
-    // glfwSetKeyCallback(window.get(), keyCallback);
-    
-    ////
     // 入力
     ////
     InputSystem inputSystem;
@@ -188,10 +175,9 @@ int main()
 
         // 入力処理
         inputSystem.Update(window.get());
-        cameraController.ApplyInput(camera,inputSystem);
+        cameraController.ApplyInput(camera, inputSystem);
 
-
-        //processInput(window.get(), camera);
+        // processInput(window.get(), camera);
 
         // uniform関連
         {
@@ -209,7 +195,7 @@ int main()
         ////
         // レンダリング
         ////
-        
+
         // レイトレーシングパス////////////////
         {
             glBindFramebuffer(GL_FRAMEBUFFER, accumFBO); // フレームバッファの指定
@@ -261,9 +247,8 @@ int main()
         }
         //////////////////////////////////////////////////
 
-        //imgui
-        imguiController.Draw(camera);
-
+        // imgui
+        imguiController.Draw(camera, sample_count);
 
         // glfw: イベントのトリガをチェック、フレームバッファの入れ替え（ここで初めて画面に見える）
         glfwPollEvents();
@@ -279,66 +264,4 @@ int main()
 
     glfwTerminate();
     return 0;
-}
-
-// フレームサイズ
-void frameBufferSizeCallback(GLFWwindow *window, int width, int height)
-{
-    glViewport(0, 0, width, height);
-}
-// スクロール
-void scrollCallback(GLFWwindow *window, double x_offset, double y_offset)
-{
-    // vfov
-    Camera *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
-    if (camera)
-    {
-        //camera->Zoom((float)y_offset * 0.2f);
-    }
-}
-// キー
-void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
-{
-    if (key == GLFW_KEY_R && action == GLFW_PRESS)
-    {
-        // カメラリセット
-        Camera *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
-        if (camera)
-        {
-            camera->Reset();
-        }
-    }
-}
-
-void processInput(GLFWwindow *window, Camera &camera)
-{
-
-    // 終了キー
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-    {
-        glfwSetWindowShouldClose(window, true);
-    }
-
-    // 移動
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-    {
-        camera.Move(glm::vec3(-0.01f, 0.0f, 0.0f));
-    }
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    {
-        camera.Move(glm::vec3(0.01f, 0.0f, 0.0f));
-    }
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-    {
-        camera.Move(glm::vec3(0.0f, 0.0f, -0.01f));
-    }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    {
-        camera.Move(glm::vec3(0.0f, 0.0f, 0.01f));
-    }
-
-    // viewoprtサイズ
-    int viewport_width, viewport_height;
-    glfwGetWindowSize(window, &viewport_width, &viewport_height);
-    camera.SetAspectRatio(float(viewport_width) / float(viewport_height));
 }

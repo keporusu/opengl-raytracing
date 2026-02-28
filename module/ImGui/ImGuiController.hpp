@@ -9,7 +9,7 @@ class ImGuiController{
 
     public:
     ImGuiController(GLFWwindow* window);
-    void Draw(Camera &camera);
+    void Draw(Camera &camera, int sample_count);
     void Destroy();
 
 };
