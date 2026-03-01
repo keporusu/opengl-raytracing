@@ -6,6 +6,8 @@ Scene::Scene()
 {
     many_balls();
     createMaterialMap();
+    //TODO: ここでspheresを入れてBVHを作りたいが、spheresをポインタにして、引数の型もポインタにしないといけないっぽい。きつい
+    //bvh=BVHNode(spheres,spheres.begin(),spheres.end());
 }
 
 void Scene::addPrimitive(Sphere sphere)
@@ -18,8 +20,9 @@ void Scene::addPrimitive(Sphere sphere)
 
     // 追加したプリミティブをUBOに反映
     primitives_ubo.spheres[sphereCount] = SubUBO_Sphere{
-        .center = sphere.center,
-        .radius = sphere.radius,
+        sphere.center,
+        sphere.radius,
+        0 // material index will be set in createMaterialMap
     };
     primitives_ubo.sphere_count = sphereCount + 1;
 
@@ -39,23 +42,28 @@ void Scene::createMaterialMap()
         case MATERIAL_LAMBERTIAN:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                .material_type = sphere.material.material_type,
-                .albedo = sphere.material.albedo};
+                sphere.material.material_type,
+                {0, 0, 0}, // padding
+                sphere.material.albedo};
             break;
         }
         case MATERIAL_METAL:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                .material_type = sphere.material.material_type,
-                .albedo = sphere.material.albedo,
-                .fuzz = sphere.material.fuzz};
+                sphere.material.material_type,
+                {0, 0, 0}, // padding
+                sphere.material.albedo,
+                sphere.material.fuzz};
             break;
         }
         case MATERIAL_DIELECTRIC:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                .material_type = sphere.material.material_type,
-                .refraction_index = sphere.material.refraction_index};
+                sphere.material.material_type,
+                {0, 0, 0}, // padding
+                {0, 0, 0}, // albedo
+                0.0f,      // fuzz
+                sphere.material.refraction_index};
             break;
         }
         default:
@@ -75,46 +83,49 @@ void Scene::three_balls()
 {
     // 真ん中の球
     addPrimitive(
-        Sphere{
-            .center = glm::vec3(0.0f, 0.0f, 1.0f),
-            .radius = 1.0f,
-            .material = Material{
+        Sphere(
+            glm::vec3(0.0f, 0.0f, 1.0f),
+            1.0f,
+            Material{
                 .material_type = MATERIAL_LAMBERTIAN,
                 .albedo = glm::vec3(0.1f, 0.2f, 0.5f),
-            }});
+            }));
     // 地面
     addPrimitive(
-        Sphere{
-            .center = glm::vec3(0.0f, -101.f, 1.0f),
-            .radius = 100.f,
-            .material = Material{
+        Sphere(
+            glm::vec3(0.0f, -101.f, 1.0f),
+            100.f,
+            Material{
                 .material_type = MATERIAL_LAMBERTIAN,
-                .albedo = glm::vec3(0.8f, 0.8f, 0.0f)}});
+                .albedo = glm::vec3(0.8f, 0.8f, 0.0f)}));
     // ガラス
     addPrimitive(
-        Sphere{
-            .center = glm::vec3(-2.0f, 0.0f, 1.0f),
-            .radius = 1.0f,
-            .material = Material{
+        Sphere(
+            glm::vec3(-2.0f, 0.0f, 1.0f),
+            1.0f,
+            Material{
                 .material_type = MATERIAL_DIELECTRIC,
-                .refraction_index = 1.5f}});
+                .refraction_index = 1.5f // refraction_index
+            }));
     // ガラス（中）
     addPrimitive(
-        Sphere{
-            .center = glm::vec3(-2.0f, 0.0f, 1.0f),
-            .radius = 0.8f,
-            .material = Material{
+        Sphere(
+            glm::vec3(-2.0f, 0.0f, 1.0f),
+            0.8f,
+            Material{
                 .material_type = MATERIAL_DIELECTRIC,
-                .refraction_index = 1.0f / 1.5f}});
+                .refraction_index = 1.0f / 1.5f // refraction_index
+            }));
     // 金属
     addPrimitive(
-        Sphere{
-            .center = glm::vec3(2.0f, 0.0f, 1.0f),
-            .radius = 1.0f,
-            .material = Material{
+        Sphere(
+            glm::vec3(2.0f, 0.0f, 1.0f),
+            1.0f,
+            Material{
                 .material_type = MATERIAL_METAL,
                 .albedo = glm::vec3(0.8f, 0.6f, 0.2f),
-                .fuzz = 1.0f}});
+                .fuzz = 1.0f // fuzz
+            }));
 }
 
 void Scene::many_balls()
@@ -124,33 +135,33 @@ void Scene::many_balls()
 
     // 地面
     addPrimitive(
-        Sphere{
-            .center = glm::vec3(0.0f, -1000.f, 1.0f),
-            .radius = 1000.f,
-            .material = Material{
+        Sphere(
+            glm::vec3(0.0f, -1000.f, 1.0f),
+            1000.f,
+            Material{
                 .material_type = MATERIAL_LAMBERTIAN,
-                .albedo = glm::vec3(0.5f, 0.5f, 0.5f)}});
+                .albedo = glm::vec3(0.5f, 0.5f, 0.5f)}));
 
     glm::vec3 glass_pos1 = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 glass_pos2 = glm::vec3(2.0f, 0.5f, 2.0f);
 
     addPrimitive(
-        Sphere{
-            .center = glass_pos1,
-            .radius = 1.0f,
-            .material = Material{
+        Sphere(
+            glass_pos1,
+            1.0f,
+            Material{
                 .material_type = MATERIAL_DIELECTRIC,
-                .refraction_index = 1.5,
-            }});
+                .refraction_index = 1.5f // refraction_index
+            }));
 
     addPrimitive(
-        Sphere{
-            .center = glass_pos2,
-            .radius = 0.5f,
-            .material = Material{
+        Sphere(
+            glass_pos2,
+            0.5f,
+            Material{
                 .material_type = MATERIAL_DIELECTRIC,
-                .refraction_index = 1.5,
-            }});
+                .refraction_index = 1.5f // refraction_index
+            }));
 
     for (int i = -4; i <= 4; i++)
     {
@@ -168,36 +179,36 @@ void Scene::many_balls()
             if (mat < 0.7f)
             {
                 addPrimitive(
-                    Sphere{
-                        .center = pos,
-                        .radius = 0.2f,
-                        .material = Material{
+                    Sphere(
+                        pos,
+                        0.2f,
+                        Material{
                             .material_type = MATERIAL_LAMBERTIAN,
                             .albedo = albedo,
-                        }});
+                        }));
             }
             else if (mat < 0.85f)
             {
                 addPrimitive(
-                    Sphere{
-                        .center = pos,
-                        .radius = 0.2f,
-                        .material = Material{
+                    Sphere(
+                        pos,
+                        0.2f,
+                        Material{
                             .material_type = MATERIAL_METAL,
                             .albedo = albedo,
                             .fuzz = (dist(rng) + 1.0f) * 0.25f,
-                        }});
+                        }));
             }
             else
             {
                 addPrimitive(
-                    Sphere{
-                        .center = pos,
-                        .radius = 0.2f,
-                        .material = Material{
+                    Sphere(
+                        pos,
+                        0.2f,
+                        Material{
                             .material_type = MATERIAL_DIELECTRIC,
-                            .refraction_index = 1.5,
-                        }});
+                            .refraction_index = 1.5f // refraction_index
+                        }));
             }
         }
     }

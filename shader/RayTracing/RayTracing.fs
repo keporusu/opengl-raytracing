@@ -13,7 +13,11 @@ bool near_zero(vec3 v) {
     const float e = 1e-8;
     return abs(v.x) < e && abs(v.y) < e && abs(v.z) < e;
 }
-
+void swap(inout float a, inout float b) {
+    float v = a;
+    a = b;
+    b = v;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 乱数
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -82,7 +86,7 @@ vec2 random_in_unit_disk(vec4 v) {
 #define PLANE_MAX 60
 #define MATERIAL_MAX 60
 #define ERROR_COLOR vec3(1.0,0.0,1.0)
-
+#define BVH_NODES_MAX 500
 //////////////////////////////////////////////////////
 // データ構造
 //////////////////////////////////////////////////////
@@ -98,6 +102,19 @@ struct HitRecord {
     float ray_pram;
     bool front_face;
     int material;
+};
+//AABB
+struct AlignedBox {
+    float x_min, x_max;
+    float y_min, y_max;
+    float z_min, z_max;
+};
+struct BVHNode {
+    AlignedBox aabb;
+    int left;
+    int right;
+    int prim_index;
+    //int pad0, pad1, pad2;
 };
 
 // Primitives
@@ -127,6 +144,9 @@ in vec2 TexCoord;
 //////////////////////////////////////////////////////
 uniform float u_frame;
 uniform int ray_sample_number;
+layout(std140) uniform BVHBlock {
+    BVHNode bvh_nodes[BVH_NODES_MAX];
+};
 layout(std140) uniform PrimitivesBlock {
     int sphere_count;
     Sphere spheres[SPHERE_MAX];
@@ -185,6 +205,63 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin,
     return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// AABB関連
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//aabbとレイが交差するか？
+bool hit_aabb(AlignedBox aabb, Ray ray) {
+    float ray_t_min = infinity;
+    float ray_t_max = 1e-3;
+    for(int axis = 0; axis < 3; axis++) {
+        float t0 = (aabb.x_min - ray.origin[axis]) / ray.direction[axis];
+        float t1 = (aabb.x_max - ray.origin[axis]) / ray.direction[axis];
+        if(t0 > t1)
+            swap(t0, t1);
+        ray_t_min = min(ray_t_min, t0);
+        ray_t_max = max(ray_t_max, t1);
+        if(ray_t_max <= ray_t_min) {
+            return false;
+        }
+    }
+    return true;
+}
+//primitiveのインデックス
+int traverse_bvh(Ray ray, out HitRecord hit_record){
+    int best_primitive=-1;
+    float min_dist=infinity;
+    //bvhのインデックスを保存するスタック（最初は0から）
+    int bvh_index_stack[64];
+    int stack_count=0;
+    bvh_index_stack[stack_count]=0;
+    stack_count++;
+    while(stack_count>0){
+        stack_count--;
+        BVHNode node=bvh_nodes[bvh_index_stack[stack_count]];
+
+        if(!hit_aabb(node.aabb,ray)){
+            continue;
+        }
+        //葉に到達した場合
+        if(node.prim_index>=0){
+            bool hit=hit_sphere(spheres[node.prim_index],ray,hit_record,1e-3,infinity);
+            //ヒットしてたら、最も近いプリミティブを更新する
+            if(hit && hit_record.ray_pram<min_dist){
+                min_dist=hit_record.ray_pram;
+                best_primitive=node.prim_index;
+            }
+        }
+        //まだ葉に到達していない
+        else{
+            //スタックに左右のbvhインデックスを積む
+            bvh_index_stack[stack_count]=node.right;
+            stack_count++;
+            bvh_index_stack[stack_count]=node.left;
+            stack_count++;
+        }
+    }
+    return best_primitive;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 散乱処理（マテリアルの挙動）
@@ -402,9 +479,7 @@ void main() {
     //レイの発射地点（ぼかし）
     float defous_radius = focus_dist * tan(radians(defous_angle / 2.0));
     vec2 launch_offs = random_in_unit_disk(vec4(seed_x, seed_y, float(ray_sample_number) + 2.0, 27.1828182845));
-    vec3 launch_point = camera_pos 
-        + launch_offs.x * y_unit * defous_radius 
-        + launch_offs.y * x_unit * defous_radius;
+    vec3 launch_point = camera_pos + launch_offs.x * y_unit * defous_radius + launch_offs.y * x_unit * defous_radius;
 
     //レイの作成
     vec3 ray_dir = normalize(aim_point - launch_point);

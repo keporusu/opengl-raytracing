@@ -1,14 +1,32 @@
+#pragma once
 #include "../../third_party/glm/glm.hpp"
 #include "../../third_party/glm/gtc/matrix_transform.hpp"
 #include "../Materials/Materials.hpp"
+#include "../BVH/AABB.hpp"
 #define MAX_SPHERES 100
 #define MAX_PLANES 100
 
-struct Sphere
+struct Primitive
+{
+    virtual ~Primitive() = default;
+    virtual AlignedBox GetAABB() const = 0;
+};
+
+struct Sphere : Primitive
 {
     glm::vec3 center;
     float radius;
     Material material;
+
+    ~Sphere() override = default;
+    Sphere(glm::vec3 c, float r, Material m) : center(c), radius(r), material(m) {}
+
+    // 球をすっぽり覆うようなAABBを作る
+    AlignedBox GetAABB() const override
+    {
+        glm::vec3 rvec = glm::vec3(radius);
+        return AlignedBox(center - rvec, center + rvec);
+    }
 };
 
 struct SubUBO_Sphere

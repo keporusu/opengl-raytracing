@@ -1,4 +1,6 @@
+#pragma once
 #include "../Primitives/Primitives.hpp"
+#include "../BVH/BVHNode.hpp"
 #include <memory>
 #include <vector>
 
@@ -16,6 +18,7 @@ private:
 
     UBO_Primitives primitives_ubo;
     UBO_Materials materials_ubo;
+    BVHNode bvh;
 
     int sphereCount = 0;
     int materialCount = 0;
