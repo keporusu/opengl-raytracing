@@ -82,11 +82,11 @@ vec2 random_in_unit_disk(vec4 v) {
 //////////////////////////////////////////////////////
 // Const
 //////////////////////////////////////////////////////
-#define SPHERE_MAX 60
-#define PLANE_MAX 60
+#define MAX_SPHERES 60
+#define MAX_PLANES 60
 #define MATERIAL_MAX 60
 #define ERROR_COLOR vec3(1.0,0.0,1.0)
-#define BVH_NODES_MAX 500
+#define MAX_BVH_NODES 500
 //////////////////////////////////////////////////////
 // データ構造
 //////////////////////////////////////////////////////
@@ -145,13 +145,14 @@ in vec2 TexCoord;
 uniform float u_frame;
 uniform int ray_sample_number;
 layout(std140) uniform BVHBlock {
-    BVHNode bvh_nodes[BVH_NODES_MAX];
+    int node_count;
+    BVHNode bvh_nodes[MAX_BVH_NODES];
 };
 layout(std140) uniform PrimitivesBlock {
     int sphere_count;
-    Sphere spheres[SPHERE_MAX];
+    Sphere spheres[MAX_SPHERES];
     // int plane_count;
-    // Plane planes[PLANE_MAX];
+    // Plane planes[MAX_PLANES];
 };
 const float focal_length = 1.0;
 layout(std140) uniform CameraBlock {
@@ -207,15 +208,20 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// AABB関連
+// プリミティブとのヒット処理関連
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //aabbとレイが交差するか？
 bool hit_aabb(AlignedBox aabb, Ray ray) {
     float ray_t_min = infinity;
     float ray_t_max = 1e-3;
+    //TODO: いずれAlignedBoxの形を変えたほうが良さそう
+    vec3 aabb_mins = vec3(aabb.x_min, aabb.y_min, aabb.z_min);
+    vec3 aabb_maxs = vec3(aabb.x_max, aabb.y_max, aabb.z_max);
+
+    //それぞれの軸で考える
     for(int axis = 0; axis < 3; axis++) {
-        float t0 = (aabb.x_min - ray.origin[axis]) / ray.direction[axis];
-        float t1 = (aabb.x_max - ray.origin[axis]) / ray.direction[axis];
+        float t0 = (aabb_mins[axis] - ray.origin[axis]) / ray.direction[axis];
+        float t1 = (aabb_maxs[axis] - ray.origin[axis]) / ray.direction[axis];
         if(t0 > t1)
             swap(t0, t1);
         ray_t_min = min(ray_t_min, t0);
@@ -226,43 +232,69 @@ bool hit_aabb(AlignedBox aabb, Ray ray) {
     }
     return true;
 }
-//primitiveのインデックス
-int traverse_bvh(Ray ray, out HitRecord hit_record){
-    int best_primitive=-1;
-    float min_dist=infinity;
+//BVHによるヒット処理
+bool traverse_bvh(Ray ray, out HitRecord hit_record) {
+    //int best_primitive = -1;
+    bool is_hit = false;
+    float min_dist = infinity;
     //bvhのインデックスを保存するスタック（最初は0から）
     int bvh_index_stack[64];
-    int stack_count=0;
-    bvh_index_stack[stack_count]=0;
+    int stack_count = 0;
+    bvh_index_stack[stack_count] = 0;
     stack_count++;
-    while(stack_count>0){
+    while(stack_count > 0) {
         stack_count--;
-        BVHNode node=bvh_nodes[bvh_index_stack[stack_count]];
+        BVHNode node = bvh_nodes[bvh_index_stack[stack_count]];
 
-        if(!hit_aabb(node.aabb,ray)){
+        if(!hit_aabb(node.aabb, ray)) {
             continue;
         }
         //葉に到達した場合
-        if(node.prim_index>=0){
-            bool hit=hit_sphere(spheres[node.prim_index],ray,hit_record,1e-3,infinity);
+        if(node.prim_index >= 0) {
+            bool hit = hit_sphere(spheres[node.prim_index], ray, hit_record, 1e-3, infinity);
             //ヒットしてたら、最も近いプリミティブを更新する
-            if(hit && hit_record.ray_pram<min_dist){
-                min_dist=hit_record.ray_pram;
-                best_primitive=node.prim_index;
+            if(hit && hit_record.ray_pram < min_dist) {
+                min_dist = hit_record.ray_pram;
+                is_hit = true;
+                //best_primitive = node.prim_index;
             }
         }
         //まだ葉に到達していない
-        else{
+        else {
             //スタックに左右のbvhインデックスを積む
-            bvh_index_stack[stack_count]=node.right;
+            bvh_index_stack[stack_count] = node.right;
             stack_count++;
-            bvh_index_stack[stack_count]=node.left;
+            bvh_index_stack[stack_count] = node.left;
             stack_count++;
         }
     }
-    return best_primitive;
+    //return best_primitive;
+    return is_hit;
 }
+//旧ヒット処理
+bool legacy_process_hitting(Ray ray, out HitRecord hit_record) {
+    bool hit = false;
+    float min_dist = infinity;
+    //それぞれのプリミティブとレイの交点を計算、一番近いところを取る
+    for(int i = 0; i < sphere_count; i++) {
+        Sphere sphere = spheres[i];
 
+        //レイ発射
+        HitRecord hit_record_i;
+        bool hit_i = hit_sphere(sphere, ray, hit_record_i, 1e-3, infinity);//ray_dir=dt+origのt
+
+        if(!hit_i)
+            continue;
+
+        hit = true;
+        //一番近いレイの交点
+        if(hit_record_i.ray_pram < min_dist) {
+            hit_record = hit_record_i;
+            min_dist = hit_record_i.ray_pram;
+        }
+    }
+    return hit;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 散乱処理（マテリアルの挙動）
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -381,30 +413,14 @@ vec3 launch_ray(Ray ray, int sample_number) {
                     break;
                 }
 
-                bool no_hit = true;
-                float min_dist = infinity;
+                bool is_hit;
                 HitRecord use_record;
-            //それぞれのプリミティブとレイの交点を計算、一番近いところを取る
-                for(int i = 0; i < sphere_count; i++) {
-                    Sphere sphere = spheres[i];
 
-                //レイ発射
-                    HitRecord hitRecord;
-                    bool hit = hit_sphere(sphere, env.ray, hitRecord, 1e-3, infinity);//ray_dir=dt+origのt
-
-                    if(!hit)
-                        continue;
-
-                    no_hit = false;
-                //一番近いレイの交点
-                    if(hitRecord.ray_pram < min_dist) {
-                        use_record = hitRecord;
-                        min_dist = hitRecord.ray_pram;
-                    }
-                }
+                is_hit = traverse_bvh(env.ray,use_record);
+                //is_hit = legacy_process_hitting(env.ray, use_record);
 
             //当たらなかった
-                if(no_hit) {
+                if(!is_hit) {
                 //背景色
                     float a = 0.5 * (env.ray.direction.y + 1.0);
                     result = (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);

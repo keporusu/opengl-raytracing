@@ -6,8 +6,7 @@ Scene::Scene()
 {
     many_balls();
     createMaterialMap();
-    //TODO: ここでspheresを入れてBVHを作りたいが、spheresをポインタにして、引数の型もポインタにしないといけないっぽい。きつい
-    //bvh=BVHNode(spheres,spheres.begin(),spheres.end());
+    createBVH();
 }
 
 void Scene::addPrimitive(Sphere sphere)
@@ -16,7 +15,7 @@ void Scene::addPrimitive(Sphere sphere)
     {
         return;
     }
-    spheres.push_back(sphere);
+    primitives.push_back(std::make_shared<Sphere>(sphere));
 
     // 追加したプリミティブをUBOに反映
     primitives_ubo.spheres[sphereCount] = SubUBO_Sphere{
@@ -29,46 +28,54 @@ void Scene::addPrimitive(Sphere sphere)
     sphereCount++;
 }
 
+void Scene::createBVH()
+{
+    bvh = BVHNode(primitives, 0, primitives.size());
+    auto nodes = bvh.FlattenAndGetUBO();
+    std::copy(nodes.begin(), nodes.end(), bvh_ubo.nodes);
+    bvh_ubo.node_count = nodes.size();
+}
+
 void Scene::createMaterialMap()
 {
 
     // 各プリミティブに追加されているマテリアルを見て、UBOに反映
     // 各プリミティブのUBOにマテリアル番号を追加
     int i = 0;
-    for (auto sphere : spheres)
+    for (auto sphere : primitives)
     {
-        switch (sphere.material.material_type)
+        switch (sphere->material.material_type)
         {
         case MATERIAL_LAMBERTIAN:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                sphere.material.material_type,
+                sphere->material.material_type,
                 {0, 0, 0}, // padding
-                sphere.material.albedo};
+                sphere->material.albedo};
             break;
         }
         case MATERIAL_METAL:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                sphere.material.material_type,
+                sphere->material.material_type,
                 {0, 0, 0}, // padding
-                sphere.material.albedo,
-                sphere.material.fuzz};
+                sphere->material.albedo,
+                sphere->material.fuzz};
             break;
         }
         case MATERIAL_DIELECTRIC:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                sphere.material.material_type,
+                sphere->material.material_type,
                 {0, 0, 0}, // padding
                 {0, 0, 0}, // albedo
                 0.0f,      // fuzz
-                sphere.material.refraction_index};
+                sphere->material.refraction_index};
             break;
         }
         default:
         {
-            throw std::logic_error("存在しないマテリアルタイプ: " + std::to_string(sphere.material.material_type));
+            throw std::logic_error("存在しないマテリアルタイプ: " + std::to_string(sphere->material.material_type));
             break;
         }
         }

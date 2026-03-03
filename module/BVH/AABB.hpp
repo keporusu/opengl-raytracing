@@ -6,6 +6,8 @@
 struct AlignedBox
 {
 public:
+    AlignedBox() = default;
+
     AlignedBox(const glm::vec3 p0, const glm::vec3 p1)
     {
         x_min = p0.x <= p1.x ? p0.x : p1.x;

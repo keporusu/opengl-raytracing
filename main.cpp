@@ -120,7 +120,7 @@ int main()
     glBindFramebuffer(GL_FRAMEBUFFER, GL_NO_BINDING);
 
     // UBO設定
-    GLuint primitivesUBO, cameraUBO, materialsUBO;
+    GLuint primitivesUBO, cameraUBO, materialsUBO, bvhUBO;
     // プリミティブ
     glGenBuffers(1, &primitivesUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, primitivesUBO);
@@ -136,6 +136,11 @@ int main()
     glBindBuffer(GL_UNIFORM_BUFFER, materialsUBO);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(UBO_Materials), scene.GetMateialsUBO(), GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 2, materialsUBO); // BindingPoint 2
+    // Bounding Volume Hierarchy
+    glGenBuffers(1, &bvhUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, bvhUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(UBO_BVH), scene.GetBVHUBO(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 3, bvhUBO); // BindingPoint 3
 
     ////
     // シェーダのコンパイル・オブジェクト作成
@@ -145,6 +150,7 @@ int main()
     raytracing_program.BindUniformBlock("PrimitivesBlock", 0);
     raytracing_program.BindUniformBlock("CameraBlock", 1);
     raytracing_program.BindUniformBlock("MaterialsBlock", 2);
+    raytracing_program.BindUniformBlock("BVHBlock", 3);
 
     ////
     // 入力
