@@ -8,14 +8,14 @@ struct AlignedBox
 public:
     AlignedBox() = default;
 
-    AlignedBox(const glm::vec3 p0, const glm::vec3 p1)
+    AlignedBox(const glm::vec3 &p0, const glm::vec3 &p1)
     {
         x_min = p0.x <= p1.x ? p0.x : p1.x;
         x_max = p0.x >= p1.x ? p0.x : p1.x;
         y_min = p0.y <= p1.y ? p0.y : p1.y;
-        x_max = p0.y >= p1.y ? p0.y : p1.y;
-        x_min = p0.z <= p1.z ? p0.z : p1.z;
-        x_max = p0.z >= p1.z ? p0.z : p1.z;
+        y_max = p0.y >= p1.y ? p0.y : p1.y;
+        z_min = p0.z <= p1.z ? p0.z : p1.z;
+        z_max = p0.z >= p1.z ? p0.z : p1.z;
     }
 
     AlignedBox(const AlignedBox &box0, const AlignedBox &box1)

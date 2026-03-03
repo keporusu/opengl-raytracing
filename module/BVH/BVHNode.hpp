@@ -11,8 +11,10 @@ struct SubUBO_BVH
     int left = -1;
     int right = -1;
     int prim_index = -1;
+    float _padding[3];
 };
-struct UBO_BVH{
+struct UBO_BVH
+{
     int node_count;
     float _padding[3];
     SubUBO_BVH nodes[MAX_BVH_NODES];

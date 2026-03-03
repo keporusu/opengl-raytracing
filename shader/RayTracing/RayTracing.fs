@@ -212,8 +212,8 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //aabbとレイが交差するか？
 bool hit_aabb(AlignedBox aabb, Ray ray) {
-    float ray_t_min = infinity;
-    float ray_t_max = 1e-3;
+    float ray_t_min = 1e-3;
+    float ray_t_max = infinity;
     //TODO: いずれAlignedBoxの形を変えたほうが良さそう
     vec3 aabb_mins = vec3(aabb.x_min, aabb.y_min, aabb.z_min);
     vec3 aabb_maxs = vec3(aabb.x_max, aabb.y_max, aabb.z_max);
@@ -224,8 +224,8 @@ bool hit_aabb(AlignedBox aabb, Ray ray) {
         float t1 = (aabb_maxs[axis] - ray.origin[axis]) / ray.direction[axis];
         if(t0 > t1)
             swap(t0, t1);
-        ray_t_min = min(ray_t_min, t0);
-        ray_t_max = max(ray_t_max, t1);
+        ray_t_min = max(ray_t_min, t0);
+        ray_t_max = min(ray_t_max, t1);
         if(ray_t_max <= ray_t_min) {
             return false;
         }
@@ -233,7 +233,7 @@ bool hit_aabb(AlignedBox aabb, Ray ray) {
     return true;
 }
 //BVHによるヒット処理
-bool traverse_bvh(Ray ray, out HitRecord hit_record) {
+bool traverse_bvh(Ray ray, out HitRecord use_record) {
     //int best_primitive = -1;
     bool is_hit = false;
     float min_dist = infinity;
@@ -251,10 +251,12 @@ bool traverse_bvh(Ray ray, out HitRecord hit_record) {
         }
         //葉に到達した場合
         if(node.prim_index >= 0) {
+            HitRecord hit_record;
             bool hit = hit_sphere(spheres[node.prim_index], ray, hit_record, 1e-3, infinity);
-            //ヒットしてたら、最も近いプリミティブを更新する
+            //ヒットしてたら、ヒット情報を更新する
             if(hit && hit_record.ray_pram < min_dist) {
                 min_dist = hit_record.ray_pram;
+                use_record = hit_record;
                 is_hit = true;
                 //best_primitive = node.prim_index;
             }
@@ -272,7 +274,7 @@ bool traverse_bvh(Ray ray, out HitRecord hit_record) {
     return is_hit;
 }
 //旧ヒット処理
-bool legacy_process_hitting(Ray ray, out HitRecord hit_record) {
+bool legacy_process_hitting(Ray ray, out HitRecord use_record) {
     bool hit = false;
     float min_dist = infinity;
     //それぞれのプリミティブとレイの交点を計算、一番近いところを取る
@@ -280,17 +282,17 @@ bool legacy_process_hitting(Ray ray, out HitRecord hit_record) {
         Sphere sphere = spheres[i];
 
         //レイ発射
-        HitRecord hit_record_i;
-        bool hit_i = hit_sphere(sphere, ray, hit_record_i, 1e-3, infinity);//ray_dir=dt+origのt
+        HitRecord hit_record;
+        bool hit_i = hit_sphere(sphere, ray, hit_record, 1e-3, infinity);//ray_dir=dt+origのt
 
         if(!hit_i)
             continue;
 
         hit = true;
         //一番近いレイの交点
-        if(hit_record_i.ray_pram < min_dist) {
-            hit_record = hit_record_i;
-            min_dist = hit_record_i.ray_pram;
+        if(hit_record.ray_pram < min_dist) {
+            use_record = hit_record;
+            min_dist = hit_record.ray_pram;
         }
     }
     return hit;
@@ -416,7 +418,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
                 bool is_hit;
                 HitRecord use_record;
 
-                is_hit = traverse_bvh(env.ray,use_record);
+                is_hit = traverse_bvh(env.ray, use_record);
                 //is_hit = legacy_process_hitting(env.ray, use_record);
 
             //当たらなかった
