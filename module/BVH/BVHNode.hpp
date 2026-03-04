@@ -41,10 +41,10 @@ public:
         size_t object_span = end - start;
         if (object_span == 1)
         {
-            // 葉の作成
-            primitive_index = (int)start;
+            // 葉の作成（UBO内の元のインデックスを使う）
+            primitive_index = primitives[start]->original_index;
             // プリミティブからAABBを作成
-            aabb = AlignedBox(primitives[primitive_index]->GetAABB(), primitives[primitive_index]->GetAABB());
+            aabb = AlignedBox(primitives[start]->GetAABB(), primitives[start]->GetAABB());
         }
         else
         {

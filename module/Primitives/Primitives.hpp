@@ -10,6 +10,7 @@ struct Primitive
     virtual ~Primitive() = default;
     virtual AlignedBox GetAABB() const = 0;
     Material material;
+    int original_index = -1; // UBO内での元のインデックス（BVHソート後も追跡可能に）
     Primitive(Material m) : material(m) {}
 };
 

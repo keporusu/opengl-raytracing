@@ -15,6 +15,7 @@ void Scene::addPrimitive(Sphere sphere)
     {
         return;
     }
+    sphere.original_index = sphereCount;
     primitives.push_back(std::make_shared<Sphere>(sphere));
 
     // 追加したプリミティブをUBOに反映

@@ -1,3 +1,4 @@
+#include <chrono>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <memory>
@@ -163,21 +164,11 @@ int main()
     ////
     // Rendering Loop
     ////
+    double drawTime = 0.0;
     int sample_count = 0;
     int frame = 0;
-    int fpsCount = 0;
-    double lastTime = glfwGetTime();
     while (!glfwWindowShouldClose(window.get()))
     {
-        // FPS計測
-        double currentTime = glfwGetTime();
-        fpsCount++;
-        if (currentTime - lastTime >= 1.0) // 1秒ごとに出力
-        {
-            std::cout << "FPS: " << fpsCount << std::endl;
-            fpsCount = 0;
-            lastTime = currentTime;
-        }
 
         // 入力処理
         inputSystem.Update(window.get());
@@ -248,7 +239,15 @@ int main()
             glBindTexture(GL_TEXTURE_2D, accumTexture);
             // 描画
             glBindVertexArray(VAO);
+            //auto start = std::chrono::high_resolution_clock::now();
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            // auto end = std::chrono::high_resolution_clock::now();
+            // drawTime += (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+            // if (frame % 20 == 0)
+            // {
+            //     std::cout << "DrawTime:" << drawTime / 20.0 << std::endl;
+            //     drawTime = 0.0;
+            // }
             glBindVertexArray(GL_NO_BINDING);
         }
         //////////////////////////////////////////////////

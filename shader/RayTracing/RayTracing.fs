@@ -82,9 +82,9 @@ vec2 random_in_unit_disk(vec4 v) {
 //////////////////////////////////////////////////////
 // Const
 //////////////////////////////////////////////////////
-#define MAX_SPHERES 60
-#define MAX_PLANES 60
-#define MATERIAL_MAX 60
+#define MAX_SPHERES 100
+#define MAX_PLANES 100
+#define MATERIAL_MAX 100
 #define ERROR_COLOR vec3(1.0,0.0,1.0)
 #define MAX_BVH_NODES 500
 //////////////////////////////////////////////////////
@@ -110,11 +110,13 @@ struct AlignedBox {
     float z_min, z_max;
 };
 struct BVHNode {
-    AlignedBox aabb;
+    float x_min, x_max;
+    float y_min, y_max;
+    float z_min, z_max;
     int left;
     int right;
     int prim_index;
-    //int pad0, pad1, pad2;
+    int pad0, pad1, pad2;
 };
 
 // Primitives
@@ -220,9 +222,10 @@ bool hit_aabb(AlignedBox aabb, Ray ray) {
 
     //それぞれの軸で考える
     for(int axis = 0; axis < 3; axis++) {
-        float t0 = (aabb_mins[axis] - ray.origin[axis]) / ray.direction[axis];
-        float t1 = (aabb_maxs[axis] - ray.origin[axis]) / ray.direction[axis];
-        if(t0 > t1)
+        float invD = 1.0 / ray.direction[axis];
+        float t0 = (aabb_mins[axis] - ray.origin[axis]) * invD;
+        float t1 = (aabb_maxs[axis] - ray.origin[axis]) * invD;
+        if(invD < 0.0f)
             swap(t0, t1);
         ray_t_min = max(ray_t_min, t0);
         ray_t_max = min(ray_t_max, t1);
@@ -246,13 +249,37 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
         stack_count--;
         BVHNode node = bvh_nodes[bvh_index_stack[stack_count]];
 
-        if(!hit_aabb(node.aabb, ray)) {
+        AlignedBox aabb = AlignedBox(node.x_min, node.x_max, node.y_min, node.y_max, node.z_min, node.z_max);
+        
+        // Ray doesn't intersect this node's AABB
+        // Also skip nodes that are farther than the current closest intersection.
+        float ray_t_min = 1e-3;
+        float ray_t_max = min_dist;
+        bool hit_box = true;
+        
+        vec3 aabb_mins = vec3(aabb.x_min, aabb.y_min, aabb.z_min);
+        vec3 aabb_maxs = vec3(aabb.x_max, aabb.y_max, aabb.z_max);
+        for(int axis = 0; axis < 3; axis++) {
+            float invD = 1.0 / ray.direction[axis];
+            float t0 = (aabb_mins[axis] - ray.origin[axis]) * invD;
+            float t1 = (aabb_maxs[axis] - ray.origin[axis]) * invD;
+            if(invD < 0.0f)
+                swap(t0, t1);
+            ray_t_min = max(ray_t_min, t0);
+            ray_t_max = min(ray_t_max, t1);
+            if(ray_t_max <= ray_t_min) {
+                hit_box = false;
+                break;
+            }
+        }
+        
+        if(!hit_box) {
             continue;
         }
         //葉に到達した場合
         if(node.prim_index >= 0) {
             HitRecord hit_record;
-            bool hit = hit_sphere(spheres[node.prim_index], ray, hit_record, 1e-3, infinity);
+            bool hit = hit_sphere(spheres[node.prim_index], ray, hit_record, 1e-3, min_dist);
             //ヒットしてたら、ヒット情報を更新する
             if(hit && hit_record.ray_pram < min_dist) {
                 min_dist = hit_record.ray_pram;
