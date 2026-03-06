@@ -1,14 +1,33 @@
+#pragma once
+#include "../BufferSizeSettings.hpp"
 #include "../../third_party/glm/glm.hpp"
 #include "../../third_party/glm/gtc/matrix_transform.hpp"
 #include "../Materials/Materials.hpp"
-#define MAX_SPHERES 100
-#define MAX_PLANES 100
+#include "../BVH/AABB.hpp"
 
-struct Sphere
+struct Primitive
+{
+    virtual ~Primitive() = default;
+    virtual AlignedBox GetAABB() const = 0;
+    Material material;
+    int original_index = -1; // UBO内での元のインデックス（BVHソート後も追跡可能に）
+    Primitive(Material m) : material(m) {}
+};
+
+struct Sphere : Primitive
 {
     glm::vec3 center;
     float radius;
-    Material material;
+
+    ~Sphere() override = default;
+    Sphere(glm::vec3 c, float r, Material m) : Primitive(m), center(c), radius(r) {}
+
+    // 球をすっぽり覆うようなAABBを作る
+    AlignedBox GetAABB() const override
+    {
+        glm::vec3 rvec = glm::vec3(radius);
+        return AlignedBox(center - rvec, center + rvec);
+    }
 };
 
 struct SubUBO_Sphere
