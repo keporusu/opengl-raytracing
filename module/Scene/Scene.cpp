@@ -175,13 +175,13 @@ void Scene::many_balls()
     {
         for (int j = -4; j <= 4; j++)
         {
-            glm::vec3 pos = {i * 1.6f + 0.9f * dist(rng), 0.2f, j * 1.6f + 0.9f * dist(rng)};
+            glm::vec3 pos = {i * 1.7f + 0.9f * dist(rng), 0.2f, j * 1.7f + 0.9f * dist(rng)};
             float mat = dist(rng) * 0.5f + 0.5f;
             glm::vec3 albedo = glm::vec3(dist(rng), dist(rng), dist(rng)) * glm::vec3(0.5f) + glm::vec3(0.5f);
 
-            if (glm::length(glm::vec2(glass_pos1.x - pos.x, glass_pos1.y - pos.y)) < 0.6f)
+            if (glm::length(glm::vec2(glass_pos1.x - pos.x, glass_pos1.y - pos.y)) < 1.5f)
                 continue;
-            if (glm::length(glm::vec2(glass_pos2.x - pos.x, glass_pos2.y - pos.y)) < 0.7f)
+            if (glm::length(glm::vec2(glass_pos2.x - pos.x, glass_pos2.y - pos.y)) < 1.0f)
                 continue;
 
             if (mat < 0.7f)
