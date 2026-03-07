@@ -188,7 +188,7 @@ layout(std140) uniform MaterialsBlock {
     Material materials[MATERIAL_MAX];
 };
 //テクスチャ
-uniform sampler2D u_texture10;
+uniform sampler2D u_texture0;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // プリミティブとの交点計算
@@ -372,7 +372,7 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
         //Lambertian
         case MATERIAL_LAMBERTIAN: {
             vec3 albedo = use_material.albedo;
-            albedo = texture(u_texture10, hit_record.uv).xyz;
+            albedo = texture(u_texture0, hit_record.uv).xyz;
             //ランバート分布による拡散反射
             scatter_dir = hit_record.normal + random_unit_vector(seed);
             //ランバート分布での反射だと、ゼロに近いベクトルが生まれることがある

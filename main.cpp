@@ -8,14 +8,15 @@
 #include <cmath>
 #include "module/Loader/ModelLoader.hpp"
 #include "module/Shader/Shader.hpp"
+#include "module/Texture/Texture.hpp"
 #include "module/Scene/Scene.hpp"
 #include "module/Camera/Camera.hpp"
 #include "module/Camera/CameraController.hpp"
 #include "module/ImGui/ImGuiController.hpp"
 #include "module/InputSystem/InputSystem.hpp"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "third_party/stb_image.h"
+// #define STB_IMAGE_IMPLEMENTATION
+// #include "third_party/stb_image.h"
 
 #define GL_NO_BINDING 0
 #define WINDOW_WIDTH 800
@@ -146,22 +147,7 @@ int main()
     glBindBufferBase(GL_UNIFORM_BUFFER, 3, bvhUBO); // BindingPoint 3
 
     // テクスチャ
-    stbi_set_flip_vertically_on_load(true);
-    int width, height, channels;
-    unsigned char *data = stbi_load("resources/textures/earthmap.png", &width, &height, &channels, 0);
-    // チャンネル数に応じてフォーマットを選択
-    GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
-
-    GLuint texture10;
-    glGenTextures(1, &texture10);
-    glBindTexture(GL_TEXTURE_2D, texture10);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    stbi_image_free(data);
+    Texture("resources/textures/earthmap.png");
 
     ////
     // シェーダのコンパイル・オブジェクト作成
@@ -192,7 +178,6 @@ int main()
         // 入力処理
         inputSystem.Update(window.get());
         cameraController.ApplyInput(camera, inputSystem);
-
 
         // uniform関連
         {
@@ -230,15 +215,18 @@ int main()
             raytracing_program.Use();
             raytracing_program.SetUniform("ray_sample_number", sample_count);
             raytracing_program.SetUniform("u_frame", (float)frame);
-            raytracing_program.SetUniform("u_texture10", 10);
+            for (int i = 0; i < Texture::GetTextureCount(); i++)
+            {
+                auto uniformSet = Texture::GetUniformData(i);
+                raytracing_program.SetUniform(uniformSet.uniform_name, uniformSet.unit_index);
+            }
 
             // カメラUBO送信
             glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
             glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_Camera), camera.GetUBO());
             // 描画
             glBindVertexArray(VAO);
-            glActiveTexture(GL_TEXTURE10);
-            glBindTexture(GL_TEXTURE_2D, texture10); // テクスチャ
+            Texture::ActivateTextures();
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             glBindVertexArray(GL_NO_BINDING);
         }
