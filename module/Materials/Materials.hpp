@@ -12,18 +12,20 @@ struct Material
 {
     int material_type;
     glm::vec3 albedo;
-    float fuzz; //ぼやかし
-    float refraction_index;//絶対屈折率
+    float fuzz;                // ぼやかし
+    float refraction_index;    // 相対屈折率
+    std::string texture_label; // テクスチャのラベル
 };
 
 struct SubUBO_Material
 {
-    int material_type;  // offset 4の倍数
-    float _padding0[3]; // パディング
-    glm::vec3 albedo;   // offset 16の倍数
-    float fuzz;         // offset 4の倍数
-    float refraction_index; //offset 4の倍数
-    float _padding1[3]; //構造体のサイズを16の倍数に(48)
+    int material_type;      // offset 4の倍数
+    float _padding0[3];     // パディング
+    glm::vec3 albedo;       // offset 16の倍数
+    float fuzz;             // offset 4の倍数
+    float refraction_index; // offset 4の倍数
+    int texture = -1;       // offset 4の倍数
+    float _padding1[2];     // 構造体のサイズを16の倍数に(48)
 };
 
 struct UBO_Materials

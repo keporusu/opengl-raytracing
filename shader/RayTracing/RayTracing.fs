@@ -151,7 +151,8 @@ struct Material {
     int material_type;
     vec3 albedo;
     float fuzz; //金属限定 ぼやかし
-    float refraction_index; //誘電体限定 相対屈折率　
+    float refraction_index; //誘電体限定 相対屈折率
+    int texture; //テクスチャのインデックス
 };
 //////////////////////////////////////////////////////
 // in-out
@@ -189,6 +190,11 @@ layout(std140) uniform MaterialsBlock {
 };
 //テクスチャ
 uniform sampler2D u_texture0;
+vec3 sample_texture(int texture_index, vec2 uv) {
+    if(texture_index == 0)
+        return texture(u_texture0, uv).xyz;
+    return ERROR_COLOR;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // プリミティブとの交点計算
@@ -372,7 +378,9 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
         //Lambertian
         case MATERIAL_LAMBERTIAN: {
             vec3 albedo = use_material.albedo;
-            albedo = texture(u_texture0, hit_record.uv).xyz;
+            //テクスチャを持っているならalbedoをテクスチャで上書き
+            if(use_material.texture>=0)
+                albedo = sample_texture(use_material.texture,hit_record.uv);
             //ランバート分布による拡散反射
             scatter_dir = hit_record.normal + random_unit_vector(seed);
             //ランバート分布での反射だと、ゼロに近いベクトルが生まれることがある
@@ -385,6 +393,9 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
         //Metal
         case MATERIAL_METAL: {
             vec3 albedo = use_material.albedo;
+            //テクスチャを持っているならalbedoをテクスチャで上書き
+            if(use_material.texture>=0)
+                albedo = sample_texture(use_material.texture,hit_record.uv);
             //鏡面反射
             scatter_dir = reflect(ray.direction, hit_record.normal);
             //Fuzzy Reflection

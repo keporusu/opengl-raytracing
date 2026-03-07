@@ -15,9 +15,6 @@
 #include "module/ImGui/ImGuiController.hpp"
 #include "module/InputSystem/InputSystem.hpp"
 
-// #define STB_IMAGE_IMPLEMENTATION
-// #include "third_party/stb_image.h"
-
 #define GL_NO_BINDING 0
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -85,7 +82,11 @@ int main()
     ////
     std::vector<float> vertices = ModelLoader::GetQuadVertices();
     std::vector<unsigned int> indices = ModelLoader::GetQuadIndices();
+    // テクスチャ
+    Texture("resources/textures/earthmap.png","earth");
+    //シーン
     Scene scene;
+    //カメラ
     Camera camera(4.0f, (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
 
     GLuint VBO, VAO, EBO;
@@ -145,9 +146,6 @@ int main()
     glBindBuffer(GL_UNIFORM_BUFFER, bvhUBO);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(UBO_BVH), scene.GetBVHUBO(), GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 3, bvhUBO); // BindingPoint 3
-
-    // テクスチャ
-    Texture("resources/textures/earthmap.png");
 
     ////
     // シェーダのコンパイル・オブジェクト作成

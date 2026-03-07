@@ -1,4 +1,5 @@
 #include "Scene.hpp"
+#include "../Texture/Texture.hpp"
 #include <random>
 
 // シーン記述
@@ -43,43 +44,56 @@ void Scene::createMaterialMap()
     // 各プリミティブに追加されているマテリアルを見て、UBOに反映
     // 各プリミティブのUBOにマテリアル番号を追加
     int i = 0;
-    for (auto sphere : primitives)
+    for (auto primitive : primitives)
     {
-        switch (sphere->material.material_type)
+        //マテリアルごとにUBOを設定
+        switch (primitive->material.material_type)
         {
         case MATERIAL_LAMBERTIAN:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                sphere->material.material_type,
+                primitive->material.material_type,
                 {0, 0, 0}, // padding
-                sphere->material.albedo};
+                primitive->material.albedo};
             break;
         }
         case MATERIAL_METAL:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                sphere->material.material_type,
+                primitive->material.material_type,
                 {0, 0, 0}, // padding
-                sphere->material.albedo,
-                sphere->material.fuzz};
+                primitive->material.albedo,
+                primitive->material.fuzz};
             break;
         }
         case MATERIAL_DIELECTRIC:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                sphere->material.material_type,
+                primitive->material.material_type,
                 {0, 0, 0}, // padding
                 {0, 0, 0}, // albedo
                 0.0f,      // fuzz
-                sphere->material.refraction_index};
+                primitive->material.refraction_index};
             break;
         }
         default:
         {
-            throw std::logic_error("存在しないマテリアルタイプ: " + std::to_string(sphere->material.material_type));
+            throw std::logic_error("存在しないマテリアルタイプ: " + std::to_string(primitive->material.material_type));
             break;
         }
         }
+
+        //テクスチャのバインド
+        std::string texLabel = primitive->material.texture_label;
+        if (!texLabel.empty())
+        {
+            materials_ubo.materials[materialCount].texture = Texture::GetTextureIndex(texLabel);
+        }
+        else
+        {
+            materials_ubo.materials[materialCount].texture = -1;
+        }
+
         primitives_ubo.spheres[i].material = materialCount;
         materialCount++;
         i++;
@@ -151,7 +165,7 @@ void Scene::many_balls()
                 .albedo = glm::vec3(0.5f, 0.5f, 0.5f)}));
 
     glm::vec3 glass_pos1 = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::vec3 glass_pos2 = glm::vec3(2.0f, 0.5f, 2.0f);
+    glm::vec3 earth_pos = glm::vec3(2.0f, 0.7f, 2.0f);
 
     addPrimitive(
         Sphere(
@@ -164,11 +178,12 @@ void Scene::many_balls()
 
     addPrimitive(
         Sphere(
-            glass_pos2,
-            0.5f,
+            earth_pos,
+            0.7f,
             Material{
-                .material_type = MATERIAL_DIELECTRIC,
-                .refraction_index = 1.5f // refraction_index
+                .material_type = MATERIAL_LAMBERTIAN,
+                .texture_label="earth",
+                //.refraction_index = 1.5f // refraction_index
             }));
 
     for (int i = -4; i <= 4; i++)
@@ -181,7 +196,7 @@ void Scene::many_balls()
 
             if (glm::length(glm::vec2(glass_pos1.x - pos.x, glass_pos1.y - pos.y)) < 1.5f)
                 continue;
-            if (glm::length(glm::vec2(glass_pos2.x - pos.x, glass_pos2.y - pos.y)) < 1.0f)
+            if (glm::length(glm::vec2(earth_pos.x - pos.x, earth_pos.y - pos.y)) < 1.0f)
                 continue;
 
             if (mat < 0.7f)
