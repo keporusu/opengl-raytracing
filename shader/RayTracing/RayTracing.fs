@@ -87,6 +87,22 @@ vec2 random_in_unit_disk(vec4 v) {
 #define MATERIAL_MAX 100
 #define ERROR_COLOR vec3(1.0,0.0,1.0)
 #define MAX_BVH_NODES 500
+
+//////////////////////////////////////////////////////
+// Background Sky
+//////////////////////////////////////////////////////
+vec3 blue_sky(float y){
+    float a = 0.5 * (y + 1.0);
+    return (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
+}
+vec3 one_big_light(float y){
+    float a = 0.5 * (y + 1.0);
+    a=pow(a,10.0);
+    return (1.0 - a) * vec3(0.0) + a * vec3(1.0,1.0,1.0);
+}
+vec3 background_sky(vec3 dir){
+    return blue_sky(dir.y);
+}
 //////////////////////////////////////////////////////
 // データ構造
 //////////////////////////////////////////////////////
@@ -451,8 +467,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
             //当たらなかった
                 if(!is_hit) {
                 //背景色
-                    float a = 0.5 * (env.ray.direction.y + 1.0);
-                    result = (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
+                    result = background_sky(env.ray.direction);
                     push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.depth));
                 }
             //当たった場合
