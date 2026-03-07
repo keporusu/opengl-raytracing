@@ -8,12 +8,12 @@
 #include <cmath>
 #include "module/Loader/ModelLoader.hpp"
 #include "module/Shader/Shader.hpp"
+#include "module/Texture/Texture.hpp"
 #include "module/Scene/Scene.hpp"
 #include "module/Camera/Camera.hpp"
 #include "module/Camera/CameraController.hpp"
 #include "module/ImGui/ImGuiController.hpp"
 #include "module/InputSystem/InputSystem.hpp"
-#define STB_IMAGE_IMPLEMENTATION
 
 #define GL_NO_BINDING 0
 #define WINDOW_WIDTH 800
@@ -82,7 +82,11 @@ int main()
     ////
     std::vector<float> vertices = ModelLoader::GetQuadVertices();
     std::vector<unsigned int> indices = ModelLoader::GetQuadIndices();
+    // テクスチャ
+    Texture("resources/textures/earthmap.png","earth");
+    //シーン
     Scene scene;
+    //カメラ
     Camera camera(4.0f, (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
 
     GLuint VBO, VAO, EBO;
@@ -164,7 +168,6 @@ int main()
     ////
     // Rendering Loop
     ////
-    double drawTime = 0.0;
     int sample_count = 0;
     int frame = 0;
     while (!glfwWindowShouldClose(window.get()))
@@ -173,8 +176,6 @@ int main()
         // 入力処理
         inputSystem.Update(window.get());
         cameraController.ApplyInput(camera, inputSystem);
-
-        // processInput(window.get(), camera);
 
         // uniform関連
         {
@@ -212,12 +213,18 @@ int main()
             raytracing_program.Use();
             raytracing_program.SetUniform("ray_sample_number", sample_count);
             raytracing_program.SetUniform("u_frame", (float)frame);
+            for (int i = 0; i < Texture::GetTextureCount(); i++)
+            {
+                auto uniformSet = Texture::GetUniformData(i);
+                raytracing_program.SetUniform(uniformSet.uniform_name, uniformSet.unit_index);
+            }
 
             // カメラUBO送信
             glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
             glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_Camera), camera.GetUBO());
             // 描画
             glBindVertexArray(VAO);
+            Texture::ActivateTextures();
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             glBindVertexArray(GL_NO_BINDING);
         }
@@ -239,7 +246,7 @@ int main()
             glBindTexture(GL_TEXTURE_2D, accumTexture);
             // 描画
             glBindVertexArray(VAO);
-            //auto start = std::chrono::high_resolution_clock::now();
+            // auto start = std::chrono::high_resolution_clock::now();
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             // auto end = std::chrono::high_resolution_clock::now();
             // drawTime += (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();

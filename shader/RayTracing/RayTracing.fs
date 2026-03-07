@@ -91,16 +91,16 @@ vec2 random_in_unit_disk(vec4 v) {
 //////////////////////////////////////////////////////
 // Background Sky
 //////////////////////////////////////////////////////
-vec3 blue_sky(float y){
+vec3 blue_sky(float y) {
     float a = 0.5 * (y + 1.0);
     return (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
 }
-vec3 one_big_light(float y){
+vec3 one_big_light(float y) {
     float a = 0.5 * (y + 1.0);
-    a=pow(a,10.0);
-    return (1.0 - a) * vec3(0.0) + a * vec3(1.0,1.0,1.0);
+    a = pow(a, 10.0);
+    return (1.0 - a) * vec3(0.0) + a * vec3(1.0, 1.0, 1.0);
 }
-vec3 background_sky(vec3 dir){
+vec3 background_sky(vec3 dir) {
     return blue_sky(dir.y);
 }
 //////////////////////////////////////////////////////
@@ -118,6 +118,8 @@ struct HitRecord {
     float ray_pram;
     bool front_face;
     int material;
+    vec2 uv;
+    int primitive;
 };
 //AABB
 struct AlignedBox {
@@ -149,7 +151,8 @@ struct Material {
     int material_type;
     vec3 albedo;
     float fuzz; //金属限定 ぼやかし
-    float refraction_index; //誘電体限定 相対屈折率　
+    float refraction_index; //誘電体限定 相対屈折率
+    int texture; //テクスチャのインデックス
 };
 //////////////////////////////////////////////////////
 // in-out
@@ -185,11 +188,19 @@ layout(std140) uniform MaterialsBlock {
     int material_count;
     Material materials[MATERIAL_MAX];
 };
+//テクスチャ
+uniform sampler2D u_texture0;
+vec3 sample_texture(int texture_index, vec2 uv) {
+    if(texture_index == 0)
+        return texture(u_texture0, uv).xyz;
+    return ERROR_COLOR;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // プリミティブとの交点計算
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin, float ray_tmax) {
+#define HIT_SPHERE 0
+bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hit_record, float ray_tmin, float ray_tmax) {
     //解: (-b +- sqrt(bb-4ac))/2a
     //線と球の交点計算
     float a = dot(ray.direction, ray.direction);
@@ -213,12 +224,18 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin,
     }
 
     //ヒット情報の書き込み
-    hitRecord.ray_pram = root;//解
-    hitRecord.point = root * ray.direction + ray.origin;//ヒット位置
-    vec3 outward_normal = (hitRecord.point - sphere.center) / sphere.radius;
-    hitRecord.front_face = dot(ray.direction, outward_normal) < 0; //当たったのは表面か？
-    hitRecord.normal = hitRecord.front_face ? outward_normal : -outward_normal;//法線の向き
-    hitRecord.material = sphere.material;
+    hit_record.ray_pram = root;//解
+    hit_record.point = root * ray.direction + ray.origin;//ヒット位置
+    vec3 outward_normal = (hit_record.point - sphere.center) / sphere.radius;
+    hit_record.front_face = dot(ray.direction, outward_normal) < 0; //当たったのは表面か？
+    hit_record.normal = hit_record.front_face ? outward_normal : -outward_normal;//法線の向き
+    hit_record.material = sphere.material;
+
+    vec3 spherecal = normalize(hit_record.point - sphere.center);
+    float theta = acos(-spherecal.y);
+    float phi = atan(-spherecal.z, spherecal.x) + PI;
+    hit_record.uv = vec2(phi / (2.0 * PI), theta / PI);
+    hit_record.primitive = HIT_SPHERE;
 
     //交わった
     return true;
@@ -241,7 +258,7 @@ bool hit_aabb(AlignedBox aabb, Ray ray) {
         float invD = 1.0 / ray.direction[axis];
         float t0 = (aabb_mins[axis] - ray.origin[axis]) * invD;
         float t1 = (aabb_maxs[axis] - ray.origin[axis]) * invD;
-        if(invD < 0.0f)
+        if(invD < 0.0)
             swap(t0, t1);
         ray_t_min = max(ray_t_min, t0);
         ray_t_max = min(ray_t_max, t1);
@@ -266,20 +283,20 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
         BVHNode node = bvh_nodes[bvh_index_stack[stack_count]];
 
         AlignedBox aabb = AlignedBox(node.x_min, node.x_max, node.y_min, node.y_max, node.z_min, node.z_max);
-        
+
         // Ray doesn't intersect this node's AABB
         // Also skip nodes that are farther than the current closest intersection.
         float ray_t_min = 1e-3;
         float ray_t_max = min_dist;
         bool hit_box = true;
-        
+
         vec3 aabb_mins = vec3(aabb.x_min, aabb.y_min, aabb.z_min);
         vec3 aabb_maxs = vec3(aabb.x_max, aabb.y_max, aabb.z_max);
         for(int axis = 0; axis < 3; axis++) {
             float invD = 1.0 / ray.direction[axis];
             float t0 = (aabb_mins[axis] - ray.origin[axis]) * invD;
             float t1 = (aabb_maxs[axis] - ray.origin[axis]) * invD;
-            if(invD < 0.0f)
+            if(invD < 0.0)
                 swap(t0, t1);
             ray_t_min = max(ray_t_min, t0);
             ray_t_max = min(ray_t_max, t1);
@@ -288,7 +305,7 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
                 break;
             }
         }
-        
+
         if(!hit_box) {
             continue;
         }
@@ -351,7 +368,7 @@ float reflectance(float cosine, float refraction_index) {
     return r0 + (1 - r0) * pow((1 - cosine), 5);
 }
 //マテリアルによる散乱処理
-bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, out Ray scattered, vec4 seed) {
+bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, out Ray scattered, vec4 seed) {
 
     //今回使うマテリアル
     Material use_material = materials[material];
@@ -361,11 +378,14 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
         //Lambertian
         case MATERIAL_LAMBERTIAN: {
             vec3 albedo = use_material.albedo;
+            //テクスチャを持っているならalbedoをテクスチャで上書き
+            if(use_material.texture>=0)
+                albedo = sample_texture(use_material.texture,hit_record.uv);
             //ランバート分布による拡散反射
-            scatter_dir = hitRecord.normal + random_unit_vector(seed);
+            scatter_dir = hit_record.normal + random_unit_vector(seed);
             //ランバート分布での反射だと、ゼロに近いベクトルが生まれることがある
             if(near_zero(scatter_dir)) {
-                scatter_dir = hitRecord.normal;
+                scatter_dir = hit_record.normal;
             }
             attenuation = albedo;
             break;
@@ -373,8 +393,11 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
         //Metal
         case MATERIAL_METAL: {
             vec3 albedo = use_material.albedo;
+            //テクスチャを持っているならalbedoをテクスチャで上書き
+            if(use_material.texture>=0)
+                albedo = sample_texture(use_material.texture,hit_record.uv);
             //鏡面反射
-            scatter_dir = reflect(ray.direction, hitRecord.normal);
+            scatter_dir = reflect(ray.direction, hit_record.normal);
             //Fuzzy Reflection
             scatter_dir = normalize(scatter_dir) + (use_material.fuzz * random_unit_vector(seed));
             attenuation = albedo;
@@ -385,16 +408,16 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
             //相対屈折率 ri=n2/n1（n1の媒質からn2の媒質に入る時）
             //glslでは相対屈折率の逆数を取る
             float abs_ri = use_material.refraction_index;
-            float ri = hitRecord.front_face ? 1.0 / abs_ri : abs_ri;
-            float cos_theta = min(dot(-ray.direction, hitRecord.normal), 1.0);
+            float ri = hit_record.front_face ? 1.0 / abs_ri : abs_ri;
+            float cos_theta = min(dot(-ray.direction, hit_record.normal), 1.0);
             float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
             //全反射
             if(ri * sin_theta > 1.0 || reflectance(cos_theta, ri) > rand(seed)) {
-                scatter_dir = reflect(ray.direction, hitRecord.normal);
+                scatter_dir = reflect(ray.direction, hit_record.normal);
             }
             //透過可能
             else {
-                scatter_dir = refract(ray.direction, hitRecord.normal, ri);
+                scatter_dir = refract(ray.direction, hit_record.normal, ri);
             }
             attenuation = vec3(1.0);
             break;
@@ -407,7 +430,7 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
     }
 
     //新しいレイを作成
-    scattered = Ray(hitRecord.point, normalize(scatter_dir));
+    scattered = Ray(hit_record.point, normalize(scatter_dir));
 
     return true;
 }
