@@ -148,7 +148,7 @@ int main()
     // テクスチャ
     stbi_set_flip_vertically_on_load(true);
     int width, height, channels;
-    unsigned char *data = stbi_load("resources/textures/red.png", &width, &height, &channels, 0);
+    unsigned char *data = stbi_load("resources/textures/earthmap.png", &width, &height, &channels, 0);
     // チャンネル数に応じてフォーマットを選択
     GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
 
@@ -172,7 +172,6 @@ int main()
     raytracing_program.BindUniformBlock("CameraBlock", 1);
     raytracing_program.BindUniformBlock("MaterialsBlock", 2);
     raytracing_program.BindUniformBlock("BVHBlock", 3);
-    raytracing_program.SetUniform("u_texture10", 10);
 
     ////
     // 入力
@@ -194,7 +193,6 @@ int main()
         inputSystem.Update(window.get());
         cameraController.ApplyInput(camera, inputSystem);
 
-        // processInput(window.get(), camera);
 
         // uniform関連
         {
@@ -232,6 +230,7 @@ int main()
             raytracing_program.Use();
             raytracing_program.SetUniform("ray_sample_number", sample_count);
             raytracing_program.SetUniform("u_frame", (float)frame);
+            raytracing_program.SetUniform("u_texture10", 10);
 
             // カメラUBO送信
             glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);

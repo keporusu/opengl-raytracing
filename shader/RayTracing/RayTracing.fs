@@ -118,6 +118,8 @@ struct HitRecord {
     float ray_pram;
     bool front_face;
     int material;
+    vec2 uv;
+    int primitive;
 };
 //AABB
 struct AlignedBox {
@@ -191,7 +193,8 @@ uniform sampler2D u_texture10;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // プリミティブとの交点計算
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin, float ray_tmax) {
+#define HIT_SPHERE 0
+bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hit_record, float ray_tmin, float ray_tmax) {
     //解: (-b +- sqrt(bb-4ac))/2a
     //線と球の交点計算
     float a = dot(ray.direction, ray.direction);
@@ -215,12 +218,18 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hitRecord, float ray_tmin,
     }
 
     //ヒット情報の書き込み
-    hitRecord.ray_pram = root;//解
-    hitRecord.point = root * ray.direction + ray.origin;//ヒット位置
-    vec3 outward_normal = (hitRecord.point - sphere.center) / sphere.radius;
-    hitRecord.front_face = dot(ray.direction, outward_normal) < 0; //当たったのは表面か？
-    hitRecord.normal = hitRecord.front_face ? outward_normal : -outward_normal;//法線の向き
-    hitRecord.material = sphere.material;
+    hit_record.ray_pram = root;//解
+    hit_record.point = root * ray.direction + ray.origin;//ヒット位置
+    vec3 outward_normal = (hit_record.point - sphere.center) / sphere.radius;
+    hit_record.front_face = dot(ray.direction, outward_normal) < 0; //当たったのは表面か？
+    hit_record.normal = hit_record.front_face ? outward_normal : -outward_normal;//法線の向き
+    hit_record.material = sphere.material;
+
+    vec3 spherecal = normalize(hit_record.point - sphere.center);
+    float theta = acos(-spherecal.y);
+    float phi = atan(-spherecal.z, spherecal.x) + PI;
+    hit_record.uv = vec2(phi / (2.0 * PI), theta / PI);
+    hit_record.primitive = HIT_SPHERE;
 
     //交わった
     return true;
@@ -353,7 +362,7 @@ float reflectance(float cosine, float refraction_index) {
     return r0 + (1 - r0) * pow((1 - cosine), 5);
 }
 //マテリアルによる散乱処理
-bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, out Ray scattered, vec4 seed) {
+bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, out Ray scattered, vec4 seed) {
 
     //今回使うマテリアル
     Material use_material = materials[material];
@@ -363,12 +372,12 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
         //Lambertian
         case MATERIAL_LAMBERTIAN: {
             vec3 albedo = use_material.albedo;
-            albedo = texture(u_texture10, vec2(0.5)).xyz;
+            albedo = texture(u_texture10, hit_record.uv).xyz;
             //ランバート分布による拡散反射
-            scatter_dir = hitRecord.normal + random_unit_vector(seed);
+            scatter_dir = hit_record.normal + random_unit_vector(seed);
             //ランバート分布での反射だと、ゼロに近いベクトルが生まれることがある
             if(near_zero(scatter_dir)) {
-                scatter_dir = hitRecord.normal;
+                scatter_dir = hit_record.normal;
             }
             attenuation = albedo;
             break;
@@ -377,7 +386,7 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
         case MATERIAL_METAL: {
             vec3 albedo = use_material.albedo;
             //鏡面反射
-            scatter_dir = reflect(ray.direction, hitRecord.normal);
+            scatter_dir = reflect(ray.direction, hit_record.normal);
             //Fuzzy Reflection
             scatter_dir = normalize(scatter_dir) + (use_material.fuzz * random_unit_vector(seed));
             attenuation = albedo;
@@ -388,16 +397,16 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
             //相対屈折率 ri=n2/n1（n1の媒質からn2の媒質に入る時）
             //glslでは相対屈折率の逆数を取る
             float abs_ri = use_material.refraction_index;
-            float ri = hitRecord.front_face ? 1.0 / abs_ri : abs_ri;
-            float cos_theta = min(dot(-ray.direction, hitRecord.normal), 1.0);
+            float ri = hit_record.front_face ? 1.0 / abs_ri : abs_ri;
+            float cos_theta = min(dot(-ray.direction, hit_record.normal), 1.0);
             float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
             //全反射
             if(ri * sin_theta > 1.0 || reflectance(cos_theta, ri) > rand(seed)) {
-                scatter_dir = reflect(ray.direction, hitRecord.normal);
+                scatter_dir = reflect(ray.direction, hit_record.normal);
             }
             //透過可能
             else {
-                scatter_dir = refract(ray.direction, hitRecord.normal, ri);
+                scatter_dir = refract(ray.direction, hit_record.normal, ri);
             }
             attenuation = vec3(1.0);
             break;
@@ -410,7 +419,7 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
     }
 
     //新しいレイを作成
-    scattered = Ray(hitRecord.point, normalize(scatter_dir));
+    scattered = Ray(hit_record.point, normalize(scatter_dir));
 
     return true;
 }
