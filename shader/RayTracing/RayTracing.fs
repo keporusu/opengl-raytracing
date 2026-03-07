@@ -91,16 +91,16 @@ vec2 random_in_unit_disk(vec4 v) {
 //////////////////////////////////////////////////////
 // Background Sky
 //////////////////////////////////////////////////////
-vec3 blue_sky(float y){
+vec3 blue_sky(float y) {
     float a = 0.5 * (y + 1.0);
     return (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
 }
-vec3 one_big_light(float y){
+vec3 one_big_light(float y) {
     float a = 0.5 * (y + 1.0);
-    a=pow(a,10.0);
-    return (1.0 - a) * vec3(0.0) + a * vec3(1.0,1.0,1.0);
+    a = pow(a, 10.0);
+    return (1.0 - a) * vec3(0.0) + a * vec3(1.0, 1.0, 1.0);
 }
-vec3 background_sky(vec3 dir){
+vec3 background_sky(vec3 dir) {
     return blue_sky(dir.y);
 }
 //////////////////////////////////////////////////////
@@ -185,6 +185,8 @@ layout(std140) uniform MaterialsBlock {
     int material_count;
     Material materials[MATERIAL_MAX];
 };
+//テクスチャ
+uniform sampler2D u_texture10;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // プリミティブとの交点計算
@@ -241,7 +243,7 @@ bool hit_aabb(AlignedBox aabb, Ray ray) {
         float invD = 1.0 / ray.direction[axis];
         float t0 = (aabb_mins[axis] - ray.origin[axis]) * invD;
         float t1 = (aabb_maxs[axis] - ray.origin[axis]) * invD;
-        if(invD < 0.0f)
+        if(invD < 0.0)
             swap(t0, t1);
         ray_t_min = max(ray_t_min, t0);
         ray_t_max = min(ray_t_max, t1);
@@ -266,20 +268,20 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
         BVHNode node = bvh_nodes[bvh_index_stack[stack_count]];
 
         AlignedBox aabb = AlignedBox(node.x_min, node.x_max, node.y_min, node.y_max, node.z_min, node.z_max);
-        
+
         // Ray doesn't intersect this node's AABB
         // Also skip nodes that are farther than the current closest intersection.
         float ray_t_min = 1e-3;
         float ray_t_max = min_dist;
         bool hit_box = true;
-        
+
         vec3 aabb_mins = vec3(aabb.x_min, aabb.y_min, aabb.z_min);
         vec3 aabb_maxs = vec3(aabb.x_max, aabb.y_max, aabb.z_max);
         for(int axis = 0; axis < 3; axis++) {
             float invD = 1.0 / ray.direction[axis];
             float t0 = (aabb_mins[axis] - ray.origin[axis]) * invD;
             float t1 = (aabb_maxs[axis] - ray.origin[axis]) * invD;
-            if(invD < 0.0f)
+            if(invD < 0.0)
                 swap(t0, t1);
             ray_t_min = max(ray_t_min, t0);
             ray_t_max = min(ray_t_max, t1);
@@ -288,7 +290,7 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
                 break;
             }
         }
-        
+
         if(!hit_box) {
             continue;
         }
@@ -361,6 +363,7 @@ bool scatter(int material, Ray ray, HitRecord hitRecord, out vec3 attenuation, o
         //Lambertian
         case MATERIAL_LAMBERTIAN: {
             vec3 albedo = use_material.albedo;
+            albedo = texture(u_texture10, vec2(0.5)).xyz;
             //ランバート分布による拡散反射
             scatter_dir = hitRecord.normal + random_unit_vector(seed);
             //ランバート分布での反射だと、ゼロに近いベクトルが生まれることがある

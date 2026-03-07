@@ -13,7 +13,9 @@
 #include "module/Camera/CameraController.hpp"
 #include "module/ImGui/ImGuiController.hpp"
 #include "module/InputSystem/InputSystem.hpp"
+
 #define STB_IMAGE_IMPLEMENTATION
+#include "third_party/stb_image.h"
 
 #define GL_NO_BINDING 0
 #define WINDOW_WIDTH 800
@@ -143,6 +145,24 @@ int main()
     glBufferData(GL_UNIFORM_BUFFER, sizeof(UBO_BVH), scene.GetBVHUBO(), GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 3, bvhUBO); // BindingPoint 3
 
+    // テクスチャ
+    stbi_set_flip_vertically_on_load(true);
+    int width, height, channels;
+    unsigned char *data = stbi_load("resources/textures/red.png", &width, &height, &channels, 0);
+    // チャンネル数に応じてフォーマットを選択
+    GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
+
+    GLuint texture10;
+    glGenTextures(1, &texture10);
+    glBindTexture(GL_TEXTURE_2D, texture10);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    stbi_image_free(data);
+
     ////
     // シェーダのコンパイル・オブジェクト作成
     ////
@@ -152,6 +172,7 @@ int main()
     raytracing_program.BindUniformBlock("CameraBlock", 1);
     raytracing_program.BindUniformBlock("MaterialsBlock", 2);
     raytracing_program.BindUniformBlock("BVHBlock", 3);
+    raytracing_program.SetUniform("u_texture10", 10);
 
     ////
     // 入力
@@ -164,7 +185,6 @@ int main()
     ////
     // Rendering Loop
     ////
-    double drawTime = 0.0;
     int sample_count = 0;
     int frame = 0;
     while (!glfwWindowShouldClose(window.get()))
@@ -218,6 +238,8 @@ int main()
             glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_Camera), camera.GetUBO());
             // 描画
             glBindVertexArray(VAO);
+            glActiveTexture(GL_TEXTURE10);
+            glBindTexture(GL_TEXTURE_2D, texture10); // テクスチャ
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             glBindVertexArray(GL_NO_BINDING);
         }
@@ -239,7 +261,7 @@ int main()
             glBindTexture(GL_TEXTURE_2D, accumTexture);
             // 描画
             glBindVertexArray(VAO);
-            //auto start = std::chrono::high_resolution_clock::now();
+            // auto start = std::chrono::high_resolution_clock::now();
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
             // auto end = std::chrono::high_resolution_clock::now();
             // drawTime += (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
