@@ -30,6 +30,22 @@ struct Sphere : Primitive
     }
 };
 
+struct Quad : Primitive
+{
+    glm::vec3 origin;
+    glm::vec3 u, v;
+    ~Quad() override = default;
+    Quad(glm::vec3 o, glm::vec3 u, glm::vec3 v, Material m) : Primitive(m), origin(o), u(u), v(v) {}
+
+    // Quadを追うようなAABBを作る（厚さ0は避ける）
+    AlignedBox GetAABB() const override
+    {
+        auto aabb1 = AlignedBox(origin, origin + u + v);
+        auto aabb2 = AlignedBox(origin + u, origin + v);
+        return AlignedBox(aabb1, aabb2);
+    }
+};
+
 struct SubUBO_Sphere
 {
     glm::vec3 center;  // offset 16の倍数

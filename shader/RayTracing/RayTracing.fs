@@ -18,6 +18,10 @@ void swap(inout float a, inout float b) {
     a = b;
     b = v;
 }
+vec3 safe_normalize(vec3 v) {
+    float l = length(v);
+    return l > 1e-4 ? v / l : vec3(0.0);
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 乱数
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -143,6 +147,10 @@ struct Sphere {
     float radius;
     int material;
 };
+struct Quad {
+    vec3 point;
+    vec3 u, v;
+};
 // Materials
 #define MATERIAL_LAMBERTIAN 1
 #define MATERIAL_METAL 2
@@ -231,7 +239,7 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hit_record, float ray_tmin
     hit_record.normal = hit_record.front_face ? outward_normal : -outward_normal;//法線の向き
     hit_record.material = sphere.material;
 
-    vec3 spherecal = normalize(hit_record.point - sphere.center);
+    vec3 spherecal = safe_normalize(hit_record.point - sphere.center);
     float theta = acos(-spherecal.y);
     float phi = atan(-spherecal.z, spherecal.x) + PI;
     hit_record.uv = vec2(phi / (2.0 * PI), theta / PI);
@@ -240,6 +248,14 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hit_record, float ray_tmin
     //交わった
     return true;
 }
+// #define HIT_QUAD 1
+// bool hit_quad(Quad quad, Ray ray, out HitRecord hit_record, float ray_tmin, float ray_tmax) {
+//     //Quadを含む平面を見つける
+//     vec3 quad_normal =
+//     //rayと平面の交わり
+//     //t=(D-n・P)/n・d
+//     return true;
+// }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -518,8 +534,8 @@ void main() {
 
     // viewportのx方向y方向の単位ベクトルを作成、viewport_locを特定する
     vec3 lookat = vec3(0, 0, 0); //（viewport上の位置）
-    vec3 z_unit = normalize(camera_pos - lookat);
-    vec3 y_unit = normalize(cross(v_up, z_unit));
+    vec3 z_unit = safe_normalize(camera_pos - lookat);
+    vec3 y_unit = safe_normalize(cross(v_up, z_unit));
     vec3 x_unit = cross(z_unit, y_unit);
 
     //viewportの中心位置
@@ -546,7 +562,7 @@ void main() {
     vec3 launch_point = camera_pos + launch_offs.x * y_unit * defous_radius + launch_offs.y * x_unit * defous_radius;
 
     //レイの作成
-    vec3 ray_dir = normalize(aim_point - launch_point);
+    vec3 ray_dir = safe_normalize(aim_point - launch_point);
     Ray ray = Ray(launch_point, ray_dir);
 
     //レイの発射
