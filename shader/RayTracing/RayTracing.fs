@@ -185,8 +185,8 @@ layout(std140) uniform BVHBlock {
 layout(std140) uniform PrimitivesBlock {
     int sphere_count;
     Sphere spheres[MAX_SPHERES];
-    // int plane_count;
-    // Plane planes[MAX_PLANES];
+    int quad_count;
+    Quad quads[MAX_QUADS];
 };
 const float focal_length = 1.0;
 layout(std140) uniform CameraBlock {
@@ -202,7 +202,7 @@ layout(std140) uniform MaterialsBlock {
     Material materials[MATERIAL_MAX];
 };
 //テクスチャ
-uniform sampler2D u_texture0;
+uniform sampler2D u_texture0; //テクスチャ0番
 vec3 sample_texture(int texture_index, vec2 uv) {
     if(texture_index == 0)
         return texture(u_texture0, uv).xyz;
@@ -346,7 +346,12 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
         //葉に到達した場合
         if(node.prim_index >= 0) {
             HitRecord hit_record;
-            bool hit = hit_sphere(spheres[node.prim_index], ray, hit_record, 1e-3, min_dist);
+            bool hit = false;
+            //どれかにヒットしたか
+            if(hit_record.primitive == HIT_SPHERE)
+                hit = hit_sphere(spheres[node.prim_index], ray, hit_record, 1e-3, min_dist);
+            if(hit_record.primitive == HIT_QUAD)
+                hit = hit_quad(quads[node.prim_index], ray, hit_record, 1e-3, min_dist);
             //ヒットしてたら、ヒット情報を更新する
             if(hit && hit_record.ray_pram < min_dist) {
                 min_dist = hit_record.ray_pram;

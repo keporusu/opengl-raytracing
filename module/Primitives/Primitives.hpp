@@ -43,7 +43,7 @@ struct Quad : Primitive
         D = glm::dot(origin, normal);
     }
 
-    // Quadを追うようなAABBを作る（厚さ0は避ける）
+    // Quadを覆うようなAABBを作る（厚さ0は避ける）
     AlignedBox GetAABB() const override
     {
         auto aabb1 = AlignedBox(origin, origin + u + v);
@@ -52,17 +52,36 @@ struct Quad : Primitive
     }
 };
 
+// 球のUBO
 struct SubUBO_Sphere
 {
-    glm::vec3 center;  // offset 16の倍数
-    float radius;      // offset 4の倍数
-    int material;      // offset 4の倍数
-    float _padding[3]; // 構造体のサイズは16の倍数に
+    glm::vec3 center;  // 12
+    float radius;      // 16
+    int material;      // 20
+    float _padding[3]; // 32 構造体のサイズは16の倍数に
+};
+
+// Quad用UBO
+struct SubUBO_Quad
+{
+    glm::vec3 origin;
+    float _padding0; // 16
+    glm::vec3 u;
+    float _padding1; // 32
+    glm::vec3 v;
+    float _padding2;    // 48
+    glm::vec3 normal;   // 60
+    float D;            // 64
+    int material;       // 68
+    float _padding3[3]; // 80 構造体のサイズは16の倍数に
 };
 
 struct UBO_Primitives
 {
-    int sphere_count;   // 4byte
-    float _padding0[3]; // 12byte /合計16byte
+    int sphere_count;   // 4
+    float _padding0[3]; // 16
     SubUBO_Sphere spheres[MAX_SPHERES];
+    int quad_count;
+    float _padding1[3];
+    SubUBO_Quad quads[MAX_QUADS];
 };

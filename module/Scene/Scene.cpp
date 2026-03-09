@@ -5,7 +5,8 @@
 // シーン記述
 Scene::Scene()
 {
-    many_balls();
+    // manyBalls();
+    cornellBox();
     createMaterialMap();
     createBVH();
 }
@@ -21,13 +22,36 @@ void Scene::addPrimitive(Sphere sphere)
 
     // 追加したプリミティブをUBOに反映
     primitives_ubo.spheres[sphereCount] = SubUBO_Sphere{
-        sphere.center,
-        sphere.radius,
-        0 // material index will be set in createMaterialMap
+        .center = sphere.center,
+        .radius = sphere.radius,
+        .material = 0 // material index will be set in createMaterialMap
     };
     primitives_ubo.sphere_count = sphereCount + 1;
 
     sphereCount++;
+}
+
+void Scene::addPrimitive(Quad quad)
+{
+    if (quadCount == MAX_QUADS)
+    {
+        return;
+    }
+    quad.original_index = quadCount;
+    primitives.push_back(std::make_shared<Quad>(quad));
+
+    // 追加したプリミティブをUBOに反映
+    primitives_ubo.quads[quadCount] = SubUBO_Quad{
+        .origin = quad.origin,
+        .u = quad.u,
+        .v = quad.v,
+        .normal = quad.normal,
+        .D = quad.D,
+        .material = 0 // material index will be set in createMaterialMap
+    };
+    primitives_ubo.quad_count = quadCount + 1;
+
+    quadCount++;
 }
 
 void Scene::createBVH()
@@ -46,7 +70,7 @@ void Scene::createMaterialMap()
     int i = 0;
     for (auto primitive : primitives)
     {
-        //マテリアルごとにUBOを設定
+        // マテリアルごとにUBOを設定
         switch (primitive->material.material_type)
         {
         case MATERIAL_LAMBERTIAN:
@@ -83,7 +107,7 @@ void Scene::createMaterialMap()
         }
         }
 
-        //テクスチャのバインド
+        // テクスチャのバインド
         std::string texLabel = primitive->material.texture_label;
         if (!texLabel.empty())
         {
@@ -101,7 +125,7 @@ void Scene::createMaterialMap()
     materials_ubo.material_count = materialCount;
 }
 
-void Scene::three_balls()
+void Scene::threeBalls()
 {
     // 真ん中の球
     addPrimitive(
@@ -150,7 +174,7 @@ void Scene::three_balls()
             }));
 }
 
-void Scene::many_balls()
+void Scene::manyBalls()
 {
     std::mt19937 rng(std::random_device{}());
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -182,7 +206,7 @@ void Scene::many_balls()
             0.7f,
             Material{
                 .material_type = MATERIAL_LAMBERTIAN,
-                .texture_label="earth",
+                .texture_label = "earth",
                 //.refraction_index = 1.5f // refraction_index
             }));
 
@@ -235,4 +259,16 @@ void Scene::many_balls()
             }
         }
     }
+}
+
+void Scene::cornellBox()
+{
+    addPrimitive(Quad{
+        glm::vec3(0.0f, 0.0f, 1.5f),
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.0, 1.0, 0.0),
+        }});
 }
