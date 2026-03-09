@@ -5,12 +5,14 @@
 const float infinity = 3.402823e+38;
 const float PI = 3.14159265359;
 const vec3 v_up = vec3(0.0, 1.0, 0.0);
+const float eps = 1e-4;
+const float eps2 = 1e-8;
 
 vec3 linear_to_gamma(vec3 c) {
     return sqrt(max(c, 0.0));
 }
 bool near_zero(vec3 v) {
-    const float e = 1e-8;
+    const float e = eps2;
     return abs(v.x) < e && abs(v.y) < e && abs(v.z) < e;
 }
 void swap(inout float a, inout float b) {
@@ -20,7 +22,7 @@ void swap(inout float a, inout float b) {
 }
 vec3 safe_normalize(vec3 v) {
     float l = length(v);
-    return l > 1e-4 ? v / l : vec3(0.0);
+    return l > eps ? v / l : vec3(0.0);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 乱数
@@ -87,10 +89,13 @@ vec2 random_in_unit_disk(vec4 v) {
 // Const
 //////////////////////////////////////////////////////
 #define MAX_SPHERES 100
-#define MAX_PLANES 100
+#define MAX_QUADS 100
 #define MATERIAL_MAX 100
 #define ERROR_COLOR vec3(1.0,0.0,1.0)
 #define MAX_BVH_NODES 500
+
+#define PRIM_TYPE_SPHERE 0
+#define PRIM_TYPE_QUAD 1
 
 //////////////////////////////////////////////////////
 // Background Sky
@@ -138,7 +143,7 @@ struct BVHNode {
     int left;
     int right;
     int prim_index;
-    int pad0, pad1, pad2;
+    int prim_type;
 };
 
 // Primitives
@@ -150,6 +155,9 @@ struct Sphere {
 struct Quad {
     vec3 point;
     vec3 u, v;
+    vec3 normal;
+    float D;
+    int material;
 };
 // Materials
 #define MATERIAL_LAMBERTIAN 1
@@ -180,8 +188,8 @@ layout(std140) uniform BVHBlock {
 layout(std140) uniform PrimitivesBlock {
     int sphere_count;
     Sphere spheres[MAX_SPHERES];
-    // int plane_count;
-    // Plane planes[MAX_PLANES];
+    int quad_count;
+    Quad quads[MAX_QUADS];
 };
 const float focal_length = 1.0;
 layout(std140) uniform CameraBlock {
@@ -197,7 +205,7 @@ layout(std140) uniform MaterialsBlock {
     Material materials[MATERIAL_MAX];
 };
 //テクスチャ
-uniform sampler2D u_texture0;
+uniform sampler2D u_texture0; //テクスチャ0番
 vec3 sample_texture(int texture_index, vec2 uv) {
     if(texture_index == 0)
         return texture(u_texture0, uv).xyz;
@@ -207,7 +215,7 @@ vec3 sample_texture(int texture_index, vec2 uv) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // プリミティブとの交点計算
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#define HIT_SPHERE 0
+
 bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hit_record, float ray_tmin, float ray_tmax) {
     //解: (-b +- sqrt(bb-4ac))/2a
     //線と球の交点計算
@@ -243,19 +251,49 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hit_record, float ray_tmin
     float theta = acos(-spherecal.y);
     float phi = atan(-spherecal.z, spherecal.x) + PI;
     hit_record.uv = vec2(phi / (2.0 * PI), theta / PI);
-    hit_record.primitive = HIT_SPHERE;
+    hit_record.primitive = PRIM_TYPE_SPHERE;
 
     //交わった
     return true;
 }
-// #define HIT_QUAD 1
-// bool hit_quad(Quad quad, Ray ray, out HitRecord hit_record, float ray_tmin, float ray_tmax) {
-//     //Quadを含む平面を見つける
-//     vec3 quad_normal =
-//     //rayと平面の交わり
-//     //t=(D-n・P)/n・d
-//     return true;
-// }
+bool hit_quad(Quad quad, Ray ray, out HitRecord hit_record, float ray_tmin, float ray_tmax) {
+    //rayと平面の交わり
+    //t=(D-n・P)/n・d
+    float denom = dot(quad.normal, ray.direction);
+    if(abs(denom) < eps2) {
+        //平面とレイが平行なので交わらない
+        return false;
+    }
+    float t = (quad.D - dot(quad.normal, ray.origin)) / denom;
+
+    if(t < ray_tmin || ray_tmax < t) {
+        return false;
+    }
+    //交点
+    vec3 intersection = ray.origin + t * ray.direction;
+
+    //intersectionが平行四辺形上にあるか？
+    vec3 w = intersection - quad.point;
+    vec3 uv_cross = cross(quad.u, quad.v); // = normal * area
+    float area = dot(uv_cross, uv_cross);  // |u×v|²
+
+    float s = dot(cross(w, quad.v), uv_cross) / area;
+    float tt = dot(cross(quad.u, w), uv_cross) / area;
+    if(s < 0.0 || 1.0 < s || tt < 0.0 || 1.0 < tt) {
+        return false;
+    }
+
+    //ヒット情報書き込み
+    hit_record.ray_pram = t;
+    hit_record.point = intersection;
+    vec3 outward_normal = quad.normal;
+    hit_record.front_face = dot(outward_normal, ray.direction) < 0.0;
+    hit_record.normal = hit_record.front_face ? outward_normal : -outward_normal;
+    hit_record.primitive = PRIM_TYPE_QUAD;
+    hit_record.material = quad.material;
+
+    return true;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -309,7 +347,13 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
         //葉に到達した場合
         if(node.prim_index >= 0) {
             HitRecord hit_record;
-            bool hit = hit_sphere(spheres[node.prim_index], ray, hit_record, 1e-3, min_dist);
+            bool hit = false;
+            //どれかにヒットしたか
+            if(node.prim_type == PRIM_TYPE_SPHERE) {
+                hit = hit_sphere(spheres[node.prim_index], ray, hit_record, 1e-3, min_dist);
+            } else if(node.prim_type == PRIM_TYPE_QUAD) {
+                hit = hit_quad(quads[node.prim_index], ray, hit_record, 1e-3, min_dist);
+            }
             //ヒットしてたら、ヒット情報を更新する
             if(hit && hit_record.ray_pram < min_dist) {
                 min_dist = hit_record.ray_pram;
@@ -334,17 +378,31 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
 bool legacy_process_hitting(Ray ray, out HitRecord use_record) {
     bool hit = false;
     float min_dist = infinity;
-    //それぞれのプリミティブとレイの交点を計算、一番近いところを取る
+    //それぞれの球とレイの交点を計算、一番近いところを取る
     for(int i = 0; i < sphere_count; i++) {
         Sphere sphere = spheres[i];
-
         //レイ発射
         HitRecord hit_record;
-        bool hit_i = hit_sphere(sphere, ray, hit_record, 1e-3, infinity);//ray_dir=dt+origのt
-
+        bool hit_i = false;
+        hit_i = hit_sphere(sphere, ray, hit_record, 1e-3, infinity);//ray_dir=dt+origのt
         if(!hit_i)
             continue;
-
+        hit = true;
+        //一番近いレイの交点
+        if(hit_record.ray_pram < min_dist) {
+            use_record = hit_record;
+            min_dist = hit_record.ray_pram;
+        }
+    }
+    //それぞれの球とレイの交点を計算、一番近いところを取る
+    for(int i = 0; i < quad_count; i++) {
+        Quad quad = quads[i];
+        //レイ発射
+        HitRecord hit_record;
+        bool hit_i = false;
+        hit_i = hit_quad(quad, ray, hit_record, 1e-3, infinity);//ray_dir=dt+origのt
+        if(!hit_i)
+            continue;
         hit = true;
         //一番近いレイの交点
         if(hit_record.ray_pram < min_dist) {
@@ -481,8 +539,8 @@ vec3 launch_ray(Ray ray, int sample_number) {
                 bool is_hit;
                 HitRecord use_record;
 
-                is_hit = traverse_bvh(env.ray, use_record);
-                //is_hit = legacy_process_hitting(env.ray, use_record);
+                //is_hit = traverse_bvh(env.ray, use_record);
+                is_hit = legacy_process_hitting(env.ray, use_record);
 
             //当たらなかった
                 if(!is_hit) {

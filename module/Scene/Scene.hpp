@@ -23,12 +23,15 @@ private:
     BVHNode bvh;
 
     int sphereCount = 0;
+    int quadCount = 0;
     int materialCount = 0;
     void addPrimitive(Sphere sphere);
+    void addPrimitive(Quad quad);
     void createMaterialMap();
     void createBVH();
 
     // シーン
-    void three_balls();
-    void many_balls();
+    void threeBalls();
+    void manyBalls();
+    void cornellBox();
 };
