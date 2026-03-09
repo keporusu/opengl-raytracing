@@ -5,7 +5,7 @@
 // シーン記述
 Scene::Scene()
 {
-    // manyBalls();
+    //manyBalls();
     cornellBox();
     createMaterialMap();
     createBVH();
@@ -67,7 +67,6 @@ void Scene::createMaterialMap()
 
     // 各プリミティブに追加されているマテリアルを見て、UBOに反映
     // 各プリミティブのUBOにマテリアル番号を追加
-    int i = 0;
     for (auto primitive : primitives)
     {
         // マテリアルごとにUBOを設定
@@ -118,9 +117,16 @@ void Scene::createMaterialMap()
             materials_ubo.materials[materialCount].texture = -1;
         }
 
-        primitives_ubo.spheres[i].material = materialCount;
+        // プリミティブのタイプに応じて正しいUBO配列にマテリアルインデックスを設定
+        if (primitive->GetPrimitiveType() == PRIM_TYPE_SPHERE)
+        {
+            primitives_ubo.spheres[primitive->original_index].material = materialCount;
+        }
+        else if (primitive->GetPrimitiveType() == PRIM_TYPE_QUAD)
+        {
+            primitives_ubo.quads[primitive->original_index].material = materialCount;
+        }
         materialCount++;
-        i++;
     }
     materials_ubo.material_count = materialCount;
 }
@@ -176,6 +182,15 @@ void Scene::threeBalls()
 
 void Scene::manyBalls()
 {
+    addPrimitive(Quad{
+        glm::vec3(0.0f, 0.0f, 1.5f),
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.0f, 1.0f, 0.0f),
+        }});
+
     std::mt19937 rng(std::random_device{}());
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
@@ -269,6 +284,6 @@ void Scene::cornellBox()
         glm::vec3(0.0f, 1.0f, 0.0f),
         Material{
             .material_type = MATERIAL_LAMBERTIAN,
-            .albedo = glm::vec3(0.0, 1.0, 0.0),
+            .albedo = glm::vec3(0.0f, 1.0f, 0.0f),
         }});
 }

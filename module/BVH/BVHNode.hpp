@@ -11,7 +11,8 @@ struct SubUBO_BVH
     int left = -1;
     int right = -1;
     int prim_index = -1;
-    float _padding[3];
+    int prim_type = -1; // PRIM_TYPE_SPHERE or PRIM_TYPE_QUAD
+    float _padding[2];
 };
 struct UBO_BVH
 {
@@ -43,6 +44,7 @@ public:
         {
             // 葉の作成（UBO内の元のインデックスを使う）
             primitive_index = primitives[start]->original_index;
+            primitive_type = primitives[start]->GetPrimitiveType();
             // プリミティブからAABBを作成
             aabb = AlignedBox(primitives[start]->GetAABB(), primitives[start]->GetAABB());
         }
@@ -94,6 +96,7 @@ private:
 
     // このaabbが囲っているプリミティブ（葉にのみ存在）
     int primitive_index = -1;
+    int primitive_type = -1;
 
     static int flatten(const BVHNode &node, std::vector<SubUBO_BVH> &bvh_ubo)
     {
@@ -104,6 +107,7 @@ private:
         SubUBO_BVH ubo_element;
         ubo_element.aabb = node.aabb;
         ubo_element.prim_index = node.primitive_index;
+        ubo_element.prim_type = node.primitive_type;
         ubo_element.left = node.left ? flatten(*node.left, bvh_ubo) : -1;
         ubo_element.right = node.right ? flatten(*node.right, bvh_ubo) : -1;
 

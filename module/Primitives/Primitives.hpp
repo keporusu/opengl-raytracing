@@ -5,10 +5,15 @@
 #include "../Materials/Materials.hpp"
 #include "../BVH/AABB.hpp"
 
+// プリミティブタイプ定数（シェーダー側と一致させる）
+#define PRIM_TYPE_SPHERE 0
+#define PRIM_TYPE_QUAD 1
+
 struct Primitive
 {
     virtual ~Primitive() = default;
     virtual AlignedBox GetAABB() const = 0;
+    virtual int GetPrimitiveType() const = 0;
     Material material;
     int original_index = -1; // UBO内での元のインデックス（BVHソート後も追跡可能に）
     Primitive(Material m) : material(m) {}
@@ -21,6 +26,7 @@ struct Sphere : Primitive
 
     ~Sphere() override = default;
     Sphere(glm::vec3 c, float r, Material m) : Primitive(m), center(c), radius(r) {}
+    int GetPrimitiveType() const override { return PRIM_TYPE_SPHERE; }
 
     // 球をすっぽり覆うようなAABBを作る
     AlignedBox GetAABB() const override
@@ -42,6 +48,7 @@ struct Quad : Primitive
         normal = glm::normalize(glm::cross(u, v));
         D = glm::dot(origin, normal);
     }
+    int GetPrimitiveType() const override { return PRIM_TYPE_QUAD; }
 
     // Quadを覆うようなAABBを作る（厚さ0は避ける）
     AlignedBox GetAABB() const override
