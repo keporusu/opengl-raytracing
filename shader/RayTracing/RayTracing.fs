@@ -5,12 +5,14 @@
 const float infinity = 3.402823e+38;
 const float PI = 3.14159265359;
 const vec3 v_up = vec3(0.0, 1.0, 0.0);
+const float eps = 1e-4;
+const float eps2 = 1e-8;
 
 vec3 linear_to_gamma(vec3 c) {
     return sqrt(max(c, 0.0));
 }
 bool near_zero(vec3 v) {
-    const float e = 1e-8;
+    const float e = eps2;
     return abs(v.x) < e && abs(v.y) < e && abs(v.z) < e;
 }
 void swap(inout float a, inout float b) {
@@ -20,7 +22,7 @@ void swap(inout float a, inout float b) {
 }
 vec3 safe_normalize(vec3 v) {
     float l = length(v);
-    return l > 1e-4 ? v / l : vec3(0.0);
+    return l > eps ? v / l : vec3(0.0);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 乱数
@@ -87,7 +89,7 @@ vec2 random_in_unit_disk(vec4 v) {
 // Const
 //////////////////////////////////////////////////////
 #define MAX_SPHERES 100
-#define MAX_PLANES 100
+#define MAX_QUADS 100
 #define MATERIAL_MAX 100
 #define ERROR_COLOR vec3(1.0,0.0,1.0)
 #define MAX_BVH_NODES 500
@@ -150,6 +152,9 @@ struct Sphere {
 struct Quad {
     vec3 point;
     vec3 u, v;
+    vec3 normal;
+    float D;
+    int material;
 };
 // Materials
 #define MATERIAL_LAMBERTIAN 1
@@ -207,6 +212,7 @@ vec3 sample_texture(int texture_index, vec2 uv) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // プリミティブとの交点計算
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 #define HIT_SPHERE 0
 bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hit_record, float ray_tmin, float ray_tmax) {
     //解: (-b +- sqrt(bb-4ac))/2a
@@ -248,14 +254,45 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hit_record, float ray_tmin
     //交わった
     return true;
 }
-// #define HIT_QUAD 1
-// bool hit_quad(Quad quad, Ray ray, out HitRecord hit_record, float ray_tmin, float ray_tmax) {
-//     //Quadを含む平面を見つける
-//     vec3 quad_normal =
-//     //rayと平面の交わり
-//     //t=(D-n・P)/n・d
-//     return true;
-// }
+#define HIT_QUAD 1
+bool hit_quad(Quad quad, Ray ray, out HitRecord hit_record, float ray_tmin, float ray_tmax) {
+    //rayと平面の交わり
+    //t=(D-n・P)/n・d
+    float denom = dot(quad.normal, ray.direction);
+    if(abs(denom) < eps2) {
+        //平面とレイが平行なので交わらない
+        return false;
+    }
+    float t = (quad.D - dot(quad.normal, ray.origin)) / denom;
+
+    if(t < ray_tmin || ray_tmax < t) {
+        return false;
+    }
+    //交点
+    vec3 intersection = ray.origin + t * ray.direction;
+
+    //intersectionが平行四辺形上にあるか？
+    vec3 w = intersection - quad.point;
+    vec3 uv_cross = cross(quad.u, quad.v); // = normal * area
+    float area = dot(uv_cross, uv_cross);  // |u×v|²
+
+    float s = dot(cross(w, quad.v), uv_cross) / area;
+    float tt = dot(cross(quad.u, w), uv_cross) / area;
+    if(s < 0.0 || 1.0 < s || tt < 0.0 || 1.0 < tt) {
+        return false;
+    }
+
+    //ヒット情報書き込み
+    hit_record.ray_pram = t;
+    hit_record.point = intersection;
+    vec3 outward_normal = quad.normal;
+    hit_record.front_face = dot(outward_normal, ray.direction) < 0.0;
+    hit_record.normal = hit_record.front_face ? outward_normal : -outward_normal;
+    hit_record.primitive = HIT_QUAD;
+    hit_record.material = quad.material;
+
+    return true;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////

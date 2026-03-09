@@ -34,8 +34,14 @@ struct Quad : Primitive
 {
     glm::vec3 origin;
     glm::vec3 u, v;
+    glm::vec3 normal;
+    float D; // 平面のAx+By+Cz=D
     ~Quad() override = default;
-    Quad(glm::vec3 o, glm::vec3 u, glm::vec3 v, Material m) : Primitive(m), origin(o), u(u), v(v) {}
+    Quad(glm::vec3 o, glm::vec3 u, glm::vec3 v, Material m) : Primitive(m), origin(o), u(u), v(v)
+    {
+        normal = glm::normalize(glm::cross(u, v));
+        D = glm::dot(origin, normal);
+    }
 
     // Quadを追うようなAABBを作る（厚さ0は避ける）
     AlignedBox GetAABB() const override
