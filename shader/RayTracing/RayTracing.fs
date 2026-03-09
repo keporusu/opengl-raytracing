@@ -284,27 +284,8 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
 
         AlignedBox aabb = AlignedBox(node.x_min, node.x_max, node.y_min, node.y_max, node.z_min, node.z_max);
 
-        // Ray doesn't intersect this node's AABB
-        // Also skip nodes that are farther than the current closest intersection.
-        float ray_t_min = 1e-3;
-        float ray_t_max = min_dist;
         bool hit_box = true;
-
-        vec3 aabb_mins = vec3(aabb.x_min, aabb.y_min, aabb.z_min);
-        vec3 aabb_maxs = vec3(aabb.x_max, aabb.y_max, aabb.z_max);
-        for(int axis = 0; axis < 3; axis++) {
-            float invD = 1.0 / ray.direction[axis];
-            float t0 = (aabb_mins[axis] - ray.origin[axis]) * invD;
-            float t1 = (aabb_maxs[axis] - ray.origin[axis]) * invD;
-            if(invD < 0.0)
-                swap(t0, t1);
-            ray_t_min = max(ray_t_min, t0);
-            ray_t_max = min(ray_t_max, t1);
-            if(ray_t_max <= ray_t_min) {
-                hit_box = false;
-                break;
-            }
-        }
+        hit_box = hit_aabb(aabb, ray);
 
         if(!hit_box) {
             continue;
@@ -379,8 +360,8 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
         case MATERIAL_LAMBERTIAN: {
             vec3 albedo = use_material.albedo;
             //テクスチャを持っているならalbedoをテクスチャで上書き
-            if(use_material.texture>=0)
-                albedo = sample_texture(use_material.texture,hit_record.uv);
+            if(use_material.texture >= 0)
+                albedo = sample_texture(use_material.texture, hit_record.uv);
             //ランバート分布による拡散反射
             scatter_dir = hit_record.normal + random_unit_vector(seed);
             //ランバート分布での反射だと、ゼロに近いベクトルが生まれることがある
@@ -394,8 +375,8 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
         case MATERIAL_METAL: {
             vec3 albedo = use_material.albedo;
             //テクスチャを持っているならalbedoをテクスチャで上書き
-            if(use_material.texture>=0)
-                albedo = sample_texture(use_material.texture,hit_record.uv);
+            if(use_material.texture >= 0)
+                albedo = sample_texture(use_material.texture, hit_record.uv);
             //鏡面反射
             scatter_dir = reflect(ray.direction, hit_record.normal);
             //Fuzzy Reflection
