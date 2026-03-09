@@ -64,7 +64,6 @@ void Scene::createBVH()
 
 void Scene::createMaterialMap()
 {
-
     // 各プリミティブに追加されているマテリアルを見て、UBOに反映
     // 各プリミティブのUBOにマテリアル番号を追加
     for (auto primitive : primitives)
@@ -75,28 +74,33 @@ void Scene::createMaterialMap()
         case MATERIAL_LAMBERTIAN:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                primitive->material.material_type,
-                {0, 0, 0}, // padding
-                primitive->material.albedo};
+                .material_type = primitive->material.material_type,
+                .albedo = primitive->material.albedo};
             break;
         }
         case MATERIAL_METAL:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                primitive->material.material_type,
-                {0, 0, 0}, // padding
-                primitive->material.albedo,
-                primitive->material.fuzz};
+                .material_type = primitive->material.material_type,
+                .albedo = primitive->material.albedo,
+                .fuzz = primitive->material.fuzz};
             break;
         }
         case MATERIAL_DIELECTRIC:
         {
             materials_ubo.materials[materialCount] = SubUBO_Material{
-                primitive->material.material_type,
-                {0, 0, 0}, // padding
-                {0, 0, 0}, // albedo
-                0.0f,      // fuzz
-                primitive->material.refraction_index};
+                .material_type = primitive->material.material_type,
+                .fuzz = 0.0f, // fuzz
+                .refraction_index = primitive->material.refraction_index};
+            break;
+        }
+        case MATERIAL_DIFFUSE_LIGHT:
+        {
+            materials_ubo.materials[materialCount] = SubUBO_Material
+            {
+                .material_type = primitive->material.material_type,
+                .emitted = primitive->material.emitted,
+            };
             break;
         }
         default:
@@ -187,8 +191,8 @@ void Scene::manyBalls()
         glm::vec3(1.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 1.0f, 0.0f),
         Material{
-            .material_type = MATERIAL_LAMBERTIAN,
-            .albedo = glm::vec3(0.0f, 1.0f, 0.0f),
+            .material_type = MATERIAL_DIFFUSE_LIGHT,
+            .emitted = glm::vec3(0.0f, 7.0f, 0.0f),
         }});
 
     std::mt19937 rng(std::random_device{}());
@@ -279,11 +283,57 @@ void Scene::manyBalls()
 void Scene::cornellBox()
 {
     addPrimitive(Quad{
-        glm::vec3(0.0f, 0.0f, 1.5f),
+        glm::vec3(-0.5f, -0.5f, 3.0f),
         glm::vec3(1.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 1.0f, 0.0f),
         Material{
             .material_type = MATERIAL_LAMBERTIAN,
-            .albedo = glm::vec3(0.0f, 1.0f, 0.0f),
+            .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
         }});
+
+    addPrimitive(Quad{
+        glm::vec3(-0.5f, -0.5f, 4.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -1.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.12f, 0.45f, 0.15f),
+        }});
+
+    addPrimitive(Quad{
+        glm::vec3(0.5f, -0.5f, 4.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -1.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.65f, 0.05f, 0.05f),
+        }});
+
+    addPrimitive(Quad{
+        glm::vec3(-0.5f, -0.5f, 4.0f),
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -1.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+        }});
+
+    addPrimitive(Quad{
+        glm::vec3(-0.5f, 0.5f, 4.0f),
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -1.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+        }});
+    
+    addPrimitive(Quad{
+        glm::vec3(-0.15f, 0.49f, 3.65f),
+        glm::vec3(0.3f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -0.3f),
+        Material{
+            .material_type = MATERIAL_DIFFUSE_LIGHT,
+            .emitted = glm::vec3(15.f, 15.f, 15.f),
+        }});
+    
 }

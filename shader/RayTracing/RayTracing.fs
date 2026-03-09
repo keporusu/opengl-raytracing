@@ -97,6 +97,11 @@ vec2 random_in_unit_disk(vec4 v) {
 #define PRIM_TYPE_SPHERE 0
 #define PRIM_TYPE_QUAD 1
 
+#define MATERIAL_LAMBERTIAN 0
+#define MATERIAL_METAL 1
+#define MATERIAL_DIELECTRIC 2
+#define MATERIAL_DIFFUSE_LIGHT 3
+
 //////////////////////////////////////////////////////
 // Background Sky
 //////////////////////////////////////////////////////
@@ -109,8 +114,12 @@ vec3 one_big_light(float y) {
     a = pow(a, 10.0);
     return (1.0 - a) * vec3(0.0) + a * vec3(1.0, 1.0, 1.0);
 }
+vec3 dark(){
+    return vec3(0.0);
+}
 vec3 background_sky(vec3 dir) {
-    return blue_sky(dir.y);
+    //return blue_sky(dir.y);
+    return dark();
 }
 //////////////////////////////////////////////////////
 // データ構造
@@ -160,15 +169,13 @@ struct Quad {
     int material;
 };
 // Materials
-#define MATERIAL_LAMBERTIAN 1
-#define MATERIAL_METAL 2
-#define MATERIAL_DIELECTRIC 3
 struct Material {
     int material_type;
     vec3 albedo;
     float fuzz; //金属限定 ぼやかし
     float refraction_index; //誘電体限定 相対屈折率
     int texture; //テクスチャのインデックス
+    vec3 emitted; //発光
 };
 //////////////////////////////////////////////////////
 // in-out
@@ -502,6 +509,7 @@ struct Environment {
     int state;//状態 0:再起開始 1:再帰呼び出し終了
     Ray ray;           // 今のレイ
     vec3 accum_attenuation; // エネルギーの減衰
+    vec3 emitted; //発光エネルギー
     int depth;         // 再帰の深さ
 };
 Environment envs_stack[STACK_MAX]; //スタック
@@ -519,7 +527,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
 
     //const int max_depth=10;
     //最初のレイを飛ばす
-    push_env(Environment(STATE_CALLED, ray, vec3(1.0), max_depth));
+    push_env(Environment(STATE_CALLED, ray, vec3(1.0), vec3(0.0), max_depth));
     vec3 result = vec3(1.0);
 
     //スタックが空になるまで（8を超えたらそれは想定外の挙動ということで処理）
@@ -532,7 +540,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
             //深さが限界に達していたら終了
                 if(env.depth <= 0) {
                     //result = vec3(0.0);
-                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.depth));
+                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, vec3(0.0), env.depth));
                     break;
                 }
 
@@ -546,7 +554,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
                 if(!is_hit) {
                 //背景色
                     result = background_sky(env.ray.direction);
-                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.depth));
+                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, vec3(0.0), env.depth));
                 }
             //当たった場合
                 else {
@@ -555,15 +563,16 @@ vec3 launch_ray(Ray ray, int sample_number) {
                     vec3 attenuation;
                     scatter(use_record.material, env.ray, use_record, attenuation, new_ray, seed);
                     vec3 new_accum_attenuation = env.accum_attenuation * attenuation;
-                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.depth));
-                    push_env(Environment(STATE_CALLED, new_ray, new_accum_attenuation, env.depth - 1));
+                    vec3 emitted = materials[use_record.material].emitted;
+                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, emitted, env.depth));
+                    push_env(Environment(STATE_CALLED, new_ray, new_accum_attenuation, emitted, env.depth - 1));
                 }
                 break;
             }
 
             //再起終了
             case STATE_RETURN: {
-                result = result * env.accum_attenuation;
+                result = result * env.accum_attenuation + env.emitted;
                 break;
             }
 
