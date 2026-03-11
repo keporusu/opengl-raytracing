@@ -48,4 +48,6 @@ private:
     void threeBalls();
     void manyBalls();
     void cornellBox();
+    void showcase();
+    void mirrorCorridor();
 };

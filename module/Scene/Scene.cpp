@@ -5,8 +5,11 @@
 // シーン記述
 Scene::Scene()
 {
-    // manyBalls();
+    //threeBalls();
+    //manyBalls();
     cornellBox();
+    //showcase();
+    //mirrorCorridor();
     createMaterialMap();
     createBVH();
 }
@@ -326,6 +329,8 @@ void Scene::manyBalls()
 
 void Scene::cornellBox()
 {
+    auto red = glm::vec3(0.9f, 0.05f, 0.05f);
+    auto green = glm::vec3(0.12f, 0.9f, 0.15f);
 
     // 後ろ
     addPrimitive(Quad{
@@ -344,7 +349,7 @@ void Scene::cornellBox()
         glm::vec3(0.0f, 0.0f, -1.0f),
         Material{
             .material_type = MATERIAL_LAMBERTIAN,
-            .albedo = glm::vec3(0.12f, 0.45f, 0.15f),
+            .albedo = green,
         }});
 
     // 右
@@ -354,7 +359,7 @@ void Scene::cornellBox()
         glm::vec3(0.0f, 0.0f, -1.0f),
         Material{
             .material_type = MATERIAL_LAMBERTIAN,
-            .albedo = glm::vec3(0.65f, 0.05f, 0.05f),
+            .albedo = red,
         }});
 
     // 下
@@ -384,18 +389,148 @@ void Scene::cornellBox()
         glm::vec3(0.0f, 0.0f, -0.3f),
         Material{
             .material_type = MATERIAL_DIFFUSE_LIGHT,
-            .emitted = glm::vec3(15.f, 15.f, 15.f),
+            .emitted = glm::vec3(30.f),
         }});
 
-    addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(-0.1f, -0.25f, -0.1f), Material{
-                                                                                 .material_type = MATERIAL_LAMBERTIAN,
-                                                                                 .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
-                                                                             },
+    addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(-0.1f, -0.25f, -0.1f),
+           Material{
+               .material_type = MATERIAL_LAMBERTIAN,
+               .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+           },
            Rotation{.y = 30.0f});
 
-    addBox(glm::vec3(0.3f, -0.5f, -0.1f), glm::vec3(0.05f, 0.0f, 0.15f), Material{
-                                                                             .material_type = MATERIAL_LAMBERTIAN,
-                                                                             .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
-                                                                         },
-           Rotation{.y = 30.0f});
+    addBox(glm::vec3(0.3f, -0.5f, -0.1f), glm::vec3(0.05f, 0.0f, 0.15f),
+           Material{
+               .material_type = MATERIAL_LAMBERTIAN,
+               .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+           },
+           Rotation{.y = -30.0f});
+}
+
+void Scene::showcase()
+{
+    // 金属床（鏡面反射）
+    addPrimitive(Quad{
+        glm::vec3(-1.5f, -0.3f, 1.5f),
+        glm::vec3(3.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -3.0f),
+        Material{
+            .material_type = MATERIAL_METAL,
+            .albedo = glm::vec3(0.8f, 0.8f, 0.8f),
+            .fuzz = 0.0f,
+        }});
+
+    // 後ろの壁
+    addPrimitive(Quad{
+        glm::vec3(-1.5f, -0.3f, -1.5f),
+        glm::vec3(3.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 2.0f, 0.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.9f, 0.9f, 0.9f),
+        }});
+
+    // ガラス球（左）
+    addPrimitive(Sphere(
+        glm::vec3(-0.6f, 0.0f, 0.0f),
+        0.3f,
+        Material{
+            .material_type = MATERIAL_DIELECTRIC,
+            .refraction_index = 1.5f,
+        }));
+
+    // マット球（中央）
+    addPrimitive(Sphere(
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        0.3f,
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.8f, 0.3f, 0.1f),
+        }));
+
+    // 金属球（右）
+    addPrimitive(Sphere(
+        glm::vec3(0.6f, 0.0f, 0.0f),
+        0.3f,
+        Material{
+            .material_type = MATERIAL_METAL,
+            .albedo = glm::vec3(0.9f, 0.7f, 0.2f),
+            .fuzz = 0.0f,
+        }));
+
+    // 上ライト
+    addPrimitive(Quad{
+        glm::vec3(-0.4f, 1.5f, 0.4f),
+        glm::vec3(0.8f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -0.8f),
+        Material{
+            .material_type = MATERIAL_DIFFUSE_LIGHT,
+            .emitted = glm::vec3(10.0f, 10.0f, 10.0f),
+        }});
+}
+
+void Scene::mirrorCorridor()
+{
+    auto mirror = Material{
+        .material_type = MATERIAL_METAL,
+        .albedo = glm::vec3(0.95f, 0.95f, 0.95f),
+        .fuzz = 0.0f,
+    };
+
+    // 床
+    addPrimitive(Quad{
+        glm::vec3(-0.5f, -0.5f, 1.5f),
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -3.0f),
+        mirror});
+
+    // 天井
+    addPrimitive(Quad{
+        glm::vec3(-0.5f, 0.5f, 1.5f),
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -3.0f),
+        mirror});
+
+    // 左壁
+    addPrimitive(Quad{
+        glm::vec3(-0.5f, -0.5f, 1.5f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -3.0f),
+        mirror});
+
+    // 右壁
+    addPrimitive(Quad{
+        glm::vec3(0.5f, -0.5f, 1.5f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -3.0f),
+        mirror});
+
+    // 奥の壁
+    addPrimitive(Quad{
+        glm::vec3(-0.5f, -0.5f, -1.5f),
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.7f, 0.7f, 0.9f),
+        }});
+
+    // 中央のガラス球
+    addPrimitive(Sphere(
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        0.25f,
+        Material{
+            .material_type = MATERIAL_DIELECTRIC,
+            .refraction_index = 1.5f,
+        }));
+
+    // 天井ライト
+    addPrimitive(Quad{
+        glm::vec3(-0.15f, 0.49f, 0.15f),
+        glm::vec3(0.3f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -0.3f),
+        Material{
+            .material_type = MATERIAL_DIFFUSE_LIGHT,
+            .emitted = glm::vec3(15.0f, 15.0f, 15.0f),
+        }});
 }
