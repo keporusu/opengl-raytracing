@@ -4,6 +4,14 @@
 #include <memory>
 #include <vector>
 
+// 度数法
+struct Rotation
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+};
+
 class Scene
 {
 
@@ -25,12 +33,18 @@ private:
     int sphereCount = 0;
     int quadCount = 0;
     int materialCount = 0;
+
+    // 図形の追加
     void addPrimitive(Sphere sphere);
     void addPrimitive(Quad quad);
+    void addBox(glm::vec3 p1, glm::vec3 p2, Material material, Rotation rotation);
+
+    // マテリアルのバインド作成
     void createMaterialMap();
+    // BVHの作成
     void createBVH();
 
-    // シーン
+    // シーン記述
     void threeBalls();
     void manyBalls();
     void cornellBox();

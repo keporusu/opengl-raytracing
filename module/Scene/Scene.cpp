@@ -5,7 +5,7 @@
 // シーン記述
 Scene::Scene()
 {
-    //manyBalls();
+    // manyBalls();
     cornellBox();
     createMaterialMap();
     createBVH();
@@ -54,6 +54,51 @@ void Scene::addPrimitive(Quad quad)
     quadCount++;
 }
 
+void Scene::addBox(glm::vec3 p1, glm::vec3 p2, Material material, Rotation rotation = Rotation())
+{
+    float min_x = std::min(p1.x, p2.x);
+    float min_y = std::min(p1.y, p2.y);
+    float min_z = std::min(p1.z, p2.z);
+    float max_x = std::max(p1.x, p2.x);
+    float max_y = std::max(p1.y, p2.y);
+    float max_z = std::max(p1.z, p2.z);
+    auto dx = glm::vec3(max_x - min_x, 0.0f, 0.0f);
+    auto dy = glm::vec3(0.0f, max_y - min_y, 0.0f);
+    auto dz = glm::vec3(0.0f, 0.0f, max_z - min_z);
+
+    std::vector<Quad> quads;
+    quads.push_back(Quad{
+        glm::vec3(min_x, min_y, max_z), dx, dy, material}); // 前
+    quads.push_back(Quad{
+        glm::vec3(max_x, min_y, max_z), -dz, dy, material}); // 右
+    quads.push_back(Quad{
+        glm::vec3(max_x, min_y, min_z), -dx, dy, material}); // 後
+    quads.push_back(Quad{
+        glm::vec3(min_x, min_y, min_z), dz, dy, material}); // 左
+    quads.push_back(Quad{
+        glm::vec3(min_x, max_y, max_z), dx, -dz, material}); // 上
+    quads.push_back(Quad{
+        glm::vec3(min_x, min_y, min_z), dx, dz, material}); // 下
+
+    glm::vec3 center = (p1 + p2) * 0.5f;
+
+    glm::mat4 rotMat = glm::mat4(1.0f);
+    rotMat = glm::rotate(rotMat, glm::radians(rotation.x), glm::vec3(1, 0, 0));
+    rotMat = glm::rotate(rotMat, glm::radians(rotation.y), glm::vec3(0, 1, 0));
+    rotMat = glm::rotate(rotMat, glm::radians(rotation.z), glm::vec3(0, 0, 1));
+
+    for (auto quad : quads)
+    {
+        // ボックス中心を原点とした座標系でquadを回転させる
+        quad.origin = glm::vec3(rotMat * glm::vec4(quad.origin - center, 1.0f)) + center;
+        quad.u = glm::vec3(rotMat * glm::vec4(quad.u, 0.0f));
+        quad.v = glm::vec3(rotMat * glm::vec4(quad.v, 0.0f));
+        quad.normal = glm::normalize(glm::cross(quad.u, quad.v));
+        quad.D = glm::dot(quad.origin, quad.normal);
+        addPrimitive(quad);
+    }
+}
+
 void Scene::createBVH()
 {
     bvh = BVHNode(primitives, 0, primitives.size());
@@ -96,8 +141,7 @@ void Scene::createMaterialMap()
         }
         case MATERIAL_DIFFUSE_LIGHT:
         {
-            materials_ubo.materials[materialCount] = SubUBO_Material
-            {
+            materials_ubo.materials[materialCount] = SubUBO_Material{
                 .material_type = primitive->material.material_type,
                 .emitted = primitive->material.emitted,
             };
@@ -282,8 +326,10 @@ void Scene::manyBalls()
 
 void Scene::cornellBox()
 {
+
+    // 後ろ
     addPrimitive(Quad{
-        glm::vec3(-0.5f, -0.5f, 3.0f),
+        glm::vec3(-0.5f, -0.5f, -0.5f),
         glm::vec3(1.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 1.0f, 0.0f),
         Material{
@@ -291,8 +337,9 @@ void Scene::cornellBox()
             .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
         }});
 
+    // 左
     addPrimitive(Quad{
-        glm::vec3(-0.5f, -0.5f, 4.0f),
+        glm::vec3(-0.5f, -0.5f, 0.5f),
         glm::vec3(0.0f, 1.0f, 0.0f),
         glm::vec3(0.0f, 0.0f, -1.0f),
         Material{
@@ -300,8 +347,9 @@ void Scene::cornellBox()
             .albedo = glm::vec3(0.12f, 0.45f, 0.15f),
         }});
 
+    // 右
     addPrimitive(Quad{
-        glm::vec3(0.5f, -0.5f, 4.0f),
+        glm::vec3(0.5f, -0.5f, 0.5f),
         glm::vec3(0.0f, 1.0f, 0.0f),
         glm::vec3(0.0f, 0.0f, -1.0f),
         Material{
@@ -309,8 +357,9 @@ void Scene::cornellBox()
             .albedo = glm::vec3(0.65f, 0.05f, 0.05f),
         }});
 
+    // 下
     addPrimitive(Quad{
-        glm::vec3(-0.5f, -0.5f, 4.0f),
+        glm::vec3(-0.5f, -0.5f, 0.5f),
         glm::vec3(1.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 0.0f, -1.0f),
         Material{
@@ -318,22 +367,35 @@ void Scene::cornellBox()
             .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
         }});
 
+    // 上
     addPrimitive(Quad{
-        glm::vec3(-0.5f, 0.5f, 4.0f),
+        glm::vec3(-0.5f, 0.5f, 0.5f),
         glm::vec3(1.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 0.0f, -1.0f),
         Material{
             .material_type = MATERIAL_LAMBERTIAN,
             .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
         }});
-    
+
+    // 上ライト
     addPrimitive(Quad{
-        glm::vec3(-0.15f, 0.49f, 3.65f),
+        glm::vec3(-0.15f, 0.49f, 0.15f),
         glm::vec3(0.3f, 0.0f, 0.0f),
         glm::vec3(0.0f, 0.0f, -0.3f),
         Material{
             .material_type = MATERIAL_DIFFUSE_LIGHT,
             .emitted = glm::vec3(15.f, 15.f, 15.f),
         }});
-    
+
+    addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(-0.1f, -0.25f, -0.1f), Material{
+                                                                                 .material_type = MATERIAL_LAMBERTIAN,
+                                                                                 .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+                                                                             },
+           Rotation{.y = 30.0f});
+
+    addBox(glm::vec3(0.3f, -0.5f, -0.1f), glm::vec3(0.05f, 0.0f, 0.15f), Material{
+                                                                             .material_type = MATERIAL_LAMBERTIAN,
+                                                                             .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+                                                                         },
+           Rotation{.y = 30.0f});
 }

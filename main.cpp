@@ -87,7 +87,7 @@ int main()
     //シーン
     Scene scene;
     //カメラ
-    Camera camera(4.0f, (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
+    Camera camera(0.9f, (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
 
     GLuint VBO, VAO, EBO;
 

@@ -63,12 +63,12 @@ public:
         {
             newRadius = 15.0f;
         }
-        if (newRadius < 3.0f)
+        if (newRadius < 0.5f)
         {
-            newRadius = 3.0f;
+            newRadius = 0.5f;
         }
 
-        if (abs(radius - newRadius) > 0.05f)
+        if (abs(radius - newRadius) > 0.02f)
         {
             is_changed = true;
             radius = newRadius;
