@@ -1,5 +1,10 @@
 #version 330 core
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// settings
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define USE_BVH true
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // utility
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float infinity = 3.402823e+38;
@@ -548,8 +553,11 @@ vec3 launch_ray(Ray ray, int sample_number) {
                 bool is_hit;
                 HitRecord use_record;
 
-                //is_hit = traverse_bvh(env.ray, use_record);
-                is_hit = legacy_process_hitting(env.ray, use_record);
+                //BVHを使うか、全部走査するか
+                if(USE_BVH)
+                    is_hit = traverse_bvh(env.ray, use_record);
+                else
+                    is_hit = legacy_process_hitting(env.ray, use_record);
 
             //当たらなかった
                 if(!is_hit) {
