@@ -29,6 +29,18 @@ vec3 safe_normalize(vec3 v) {
     float l = length(v);
     return l > eps ? v / l : vec3(0.0);
 }
+
+struct OrthonomalBasis {
+    vec3 u, v, w;
+};
+//法線周りに正規直交基底を作る
+OrthonomalBasis create_orthonomal_basis(vec3 n) {
+    vec3 w = normalize(n);
+    vec3 a = abs(n.x) > 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 v = normalize(cross(w, a));
+    vec3 u = cross(w, v);
+    return OrthonomalBasis(u, v, w);
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 乱数
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -119,7 +131,7 @@ vec3 one_big_light(float y) {
     a = pow(a, 10.0);
     return (1.0 - a) * vec3(0.0) + a * vec3(1.0, 1.0, 1.0);
 }
-vec3 dark(){
+vec3 dark() {
     return vec3(0.0);
 }
 vec3 background_sky(vec3 dir) {
@@ -435,8 +447,22 @@ float reflectance(float cosine, float refraction_index) {
     r0 = r0 * r0;
     return r0 + (1 - r0) * pow((1 - cosine), 5);
 }
+//マテリアルごとのpdf値の計算
+float scattering_pdf(Ray ray, HitRecord hit_record, Ray scattered_ray) {
+    float pdf_value;
+
+    switch(materials[hit_record.material].material_type) {
+        case MATERIAL_LAMBERTIAN: {
+            pdf_value = 1.0 / (2.0 * PI);
+        }
+        default: {
+            pdf_value = 0.0;
+        }
+    }
+    return pdf_value;
+}
 //マテリアルによる散乱処理
-bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, out Ray scattered, vec4 seed) {
+bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, out Ray scattered, out float pdf_value, vec4 seed) {
 
     //今回使うマテリアル
     Material use_material = materials[material];
@@ -499,6 +525,8 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
 
     //新しいレイを作成
     scattered = Ray(hit_record.point, normalize(scatter_dir));
+    //pdfの計算
+    pdf_value = scattering_pdf(ray, hit_record, scattered);
 
     return true;
 }
@@ -516,6 +544,8 @@ struct Environment {
     Ray ray;           // 今のレイ
     vec3 accum_attenuation; // エネルギーの減衰
     vec3 emitted; //発光エネルギー
+    float pdf_value;//全体的なサンプリング戦略
+    float scattering_pdf;//散乱の仕方(BRDFに対するpdf)
     int depth;         // 再帰の深さ
 };
 Environment envs_stack[STACK_MAX]; //スタック
@@ -533,7 +563,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
 
     //const int max_depth=10;
     //最初のレイを飛ばす
-    push_env(Environment(STATE_CALLED, ray, vec3(1.0), vec3(0.0), max_depth));
+    push_env(Environment(STATE_CALLED, ray, vec3(1.0), vec3(0.0), 1.0, 1.0, max_depth));
     vec3 result = vec3(1.0);
 
     //スタックが空になるまで（8を超えたらそれは想定外の挙動ということで処理）
@@ -546,7 +576,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
             //深さが限界に達していたら終了
                 if(env.depth <= 0) {
                     //result = vec3(0.0);
-                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, vec3(0.0), env.depth));
+                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.emitted, env.pdf_value, env.scattering_pdf, env.depth));
                     break;
                 }
 
@@ -563,25 +593,53 @@ vec3 launch_ray(Ray ray, int sample_number) {
                 if(!is_hit) {
                 //背景色
                     result = background_sky(env.ray.direction);
-                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, vec3(0.0), env.depth));
+                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.emitted, env.pdf_value, env.scattering_pdf, env.depth));
                 }
             //当たった場合
                 else {
                     vec4 seed = vec4(TexCoord.xy * use_record.ray_pram * 10000.0, float(sample_number), float(env.depth));
-                    Ray new_ray;
-                    vec3 attenuation;
-                    scatter(use_record.material, env.ray, use_record, attenuation, new_ray, seed);
-                    vec3 new_accum_attenuation = env.accum_attenuation * attenuation;
+                    //以下3つは計算させる
+                    Ray new_ray;//次に発生するレイ
+                    vec3 attenuation;//減衰
+                    float pdf_value;//pdf値
+                    bool is_scatterd;
+                    is_scatterd = scatter(use_record.material, env.ray, use_record, attenuation, new_ray, pdf_value, seed);
                     vec3 emitted = materials[use_record.material].emitted;
-                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, emitted, env.depth));
-                    push_env(Environment(STATE_CALLED, new_ray, new_accum_attenuation, emitted, env.depth - 1));
+                    //反射できなかった場合は、発光のエネルギーだけを返す
+                    //TODO:いらない可能性高い。後で下の処理に吸収させるかも
+                    if(!is_scatterd) {
+                        push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.emitted, env.pdf_value, env.scattering_pdf, env.depth));
+                    } 
+                    //反射できた場合
+                    else {
+                        vec2 uv_offs = rand2(seed + 31.415926535);
+                        vec3 on_light = vec3(-0.15, 0.49, 0.15) + vec3(0.3, 0.0, 0.0) * uv_offs.x + vec3(0.0, 0.0, -0.3) * uv_offs.y;
+                        vec3 to_light = on_light - use_record.point;
+                        float dist_squared = dot(to_light, to_light);
+                        to_light = safe_normalize(to_light);
+                        float light_area = 0.3 * 0.3;
+                        float light_cosine = abs(to_light.y);
+                        if(light_cosine < 0.000001) {
+                            push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.emitted, env.pdf_value, env.scattering_pdf, env.depth));
+                        }
+                        //TODO: 上書きしてるので後で消す
+                        pdf_value = dist_squared / (light_area * light_cosine);
+                        new_ray = Ray(use_record.point, to_light);
+                        float scattering_pdf = scattering_pdf(ray, use_record, new_ray);
+
+                        vec3 new_accum_attenuation = env.accum_attenuation * attenuation;
+                        push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.emitted, env.pdf_value, env.scattering_pdf, env.depth));
+                        push_env(Environment(STATE_CALLED, new_ray, new_accum_attenuation, emitted, pdf_value, scattering_pdf, env.depth - 1));
+                    }
                 }
                 break;
             }
 
             //再起終了
             case STATE_RETURN: {
-                result = result * env.accum_attenuation + env.emitted;
+                vec3 res_scattered = env.accum_attenuation * env.scattering_pdf * result / env.pdf_value;
+                vec3 res_emitted = env.emitted;
+                result = res_scattered + res_emitted;
                 break;
             }
 
