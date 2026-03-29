@@ -34,12 +34,27 @@ void Scene::addPrimitive(Sphere sphere)
     sphereCount++;
 }
 
-void Scene::addPrimitive(Quad quad)
+void Scene::addPrimitive(Quad quad, Rotation rotation)
 {
     if (quadCount == MAX_QUADS)
     {
         return;
     }
+
+    // Quadの中心を軸に回転
+    glm::vec3 center = quad.origin + (quad.u + quad.v) * 0.5f;
+
+    glm::mat4 rotMat = glm::mat4(1.0f);
+    rotMat = glm::rotate(rotMat, glm::radians(rotation.x), glm::vec3(1, 0, 0));
+    rotMat = glm::rotate(rotMat, glm::radians(rotation.y), glm::vec3(0, 1, 0));
+    rotMat = glm::rotate(rotMat, glm::radians(rotation.z), glm::vec3(0, 0, 1));
+
+    quad.origin = glm::vec3(rotMat * glm::vec4(quad.origin - center, 1.0f)) + center;
+    quad.u = glm::vec3(rotMat * glm::vec4(quad.u, 0.0f));
+    quad.v = glm::vec3(rotMat * glm::vec4(quad.v, 0.0f));
+    quad.normal = glm::normalize(glm::cross(quad.u, quad.v));
+    quad.D = glm::dot(quad.origin, quad.normal);
+
     quad.original_index = quadCount;
     primitives.push_back(std::make_shared<Quad>(quad));
 
@@ -389,8 +404,8 @@ void Scene::cornellBox()
         glm::vec3(0.0f, 0.0f, -0.3f),
         Material{
             .material_type = MATERIAL_DIFFUSE_LIGHT,
-            .emitted = glm::vec3(30.f),
-        }});
+            .emitted = glm::vec3(15.f),
+        }},Rotation{.x=180.f});
 
     addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(-0.1f, 0.0f, -0.1f),
            Material{
