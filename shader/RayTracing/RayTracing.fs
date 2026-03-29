@@ -454,9 +454,11 @@ float scattering_pdf(Ray ray, HitRecord hit_record, Ray scattered_ray) {
     switch(materials[hit_record.material].material_type) {
         case MATERIAL_LAMBERTIAN: {
             pdf_value = 1.0 / (2.0 * PI);
+            break;
         }
         default: {
             pdf_value = 0.0;
+            break;
         }
     }
     return pdf_value;
@@ -628,8 +630,10 @@ vec3 launch_ray(Ray ray, int sample_number) {
                         float scattering_pdf = scattering_pdf(ray, use_record, new_ray);
 
                         vec3 new_accum_attenuation = env.accum_attenuation * attenuation;
-                        push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.emitted, env.pdf_value, env.scattering_pdf, env.depth));
-                        push_env(Environment(STATE_CALLED, new_ray, new_accum_attenuation, emitted, pdf_value, scattering_pdf, env.depth - 1));
+                        // push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, env.emitted, env.pdf_value, env.scattering_pdf, env.depth));
+                        // push_env(Environment(STATE_CALLED, new_ray, new_accum_attenuation, emitted, pdf_value, scattering_pdf, env.depth - 1));
+                        push_env(Environment(STATE_RETURN, env.ray, attenuation, emitted, pdf_value, scattering_pdf, env.depth));
+                        push_env(Environment(STATE_CALLED,  new_ray, vec3(1.0), vec3(0.0), 1.0, 1.0, env.depth - 1));
                     }
                 }
                 break;
