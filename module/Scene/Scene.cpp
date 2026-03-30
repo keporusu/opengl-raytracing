@@ -404,7 +404,7 @@ void Scene::cornellBox()
         glm::vec3(0.0f, 0.0f, -0.3f),
         Material{
             .material_type = MATERIAL_DIFFUSE_LIGHT,
-            .emitted = glm::vec3(15.f),
+            .emitted = glm::vec3(30.f),
         }},Rotation{.x=180.f});
 
     addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(-0.1f, 0.0f, -0.1f),
