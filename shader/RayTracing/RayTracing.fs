@@ -169,6 +169,13 @@ struct HitRecord {
     int prim_type;
     int prim_index;
 };
+//散乱情報(PDF関連)
+struct ScatterRecord {
+    vec3 attenuation;
+    float pdf_value;
+    bool skip_pdf; //pdfを使うか？
+    Ray skip_pdf_ray; //pdfを用いずに決定したレイ（skip_pdfがtrueのとき）
+};
 //AABB
 struct AlignedBox {
     float x_min, x_max;
@@ -500,7 +507,7 @@ float calc_brdf_cos(Ray ray, HitRecord hit_record, Ray scattered_ray) {
     return pdf_value;
 }
 //マテリアルによる散乱処理
-bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, out Ray scattered, out float pdf_value, vec4 seed) {
+bool scatter(int material, Ray ray_in, HitRecord hit_record, out vec3 attenuation, out Ray ray_out, out float pdf_value, vec4 seed) {
 
     //今回使うマテリアル
     Material use_material = materials[material];
@@ -529,7 +536,7 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
             if(use_material.texture >= 0)
                 albedo = sample_texture(use_material.texture, hit_record.uv);
             //鏡面反射
-            scatter_dir = reflect(ray.direction, hit_record.normal);
+            scatter_dir = reflect(ray_in.direction, hit_record.normal);
             //Fuzzy Reflection
             scatter_dir = normalize(scatter_dir) + (use_material.fuzz * random_unit_vector(seed));
             attenuation = albedo;
@@ -541,15 +548,15 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
             //glslでは相対屈折率の逆数を取る
             float abs_ri = use_material.refraction_index;
             float ri = hit_record.front_face ? 1.0 / abs_ri : abs_ri;
-            float cos_theta = min(dot(-ray.direction, hit_record.normal), 1.0);
+            float cos_theta = min(dot(-ray_in.direction, hit_record.normal), 1.0);
             float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
             //全反射
             if(ri * sin_theta > 1.0 || reflectance(cos_theta, ri) > rand(seed)) {
-                scatter_dir = reflect(ray.direction, hit_record.normal);
+                scatter_dir = reflect(ray_in.direction, hit_record.normal);
             }
             //透過可能
             else {
-                scatter_dir = refract(ray.direction, hit_record.normal, ri);
+                scatter_dir = refract(ray_in.direction, hit_record.normal, ri);
             }
             attenuation = vec3(1.0);
             break;
@@ -566,11 +573,29 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
     }
 
     //新しいレイを作成
-    scattered = Ray(hit_record.point, normalize(scatter_dir));
+    ray_out = Ray(hit_record.point, normalize(scatter_dir));
     //pdfの計算
-    pdf_value = calc_brdf_cos(ray, hit_record, scattered);
+    pdf_value = calc_brdf_cos(ray_in, hit_record, ray_out);
 
     return true;
+}
+//マテリアルによる散乱処理（pdfを考慮した場合）
+bool scatter(int material, Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecord scatter_record, vec4 seed) {
+    Material mat = materials[material];
+    if(mat.material_type == MATERIAL_LAMBERTIAN) {
+        scatter_record.attenuation = mat.albedo;
+        if(mat.texture >= 0)
+            scatter_record.attenuation = sample_texture(mat.texture, hit_record.uv);
+        scatter_record.pdf_value=0.0;
+        scatter_record.skip_pdf=false;
+    } else if(mat.material_type == MATERIAL_METAL) {
+
+    } else if(mat.material_type == MATERIAL_DIELECTRIC) {
+
+    } else if(mat.material_type == MATERIAL_DIFFUSE_LIGHT) {
+
+    }
+    return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -643,8 +668,9 @@ vec3 launch_ray(Ray ray, int sample_number) {
                     //以下は計算させる
                     Ray new_ray;//次に発生するレイ
                     vec3 attenuation;//減衰
-                    float surface_pdf_value = 0.0;//pdf値
-                    float light_pdf_value = 0.0;
+                    float surface_pdf_value = 0.0;//brdfによるpdf
+                    float light_pdf_value = 0.0;//neeによるpdf
+                    float sampling_pdf_value = 0.0; //最終的なpdf値
                     float brdf_cos = 0.0;
                     bool is_scatterd;
                     is_scatterd = scatter(use_record.material, env.ray, use_record, attenuation, new_ray, surface_pdf_value, seed);
@@ -681,7 +707,6 @@ vec3 launch_ray(Ray ray, int sample_number) {
                             }
                             new_ray = Ray(use_record.point, scatter_dir);
                             light_pdf_value = light_pdf(use_record, scatter_dir, on_light);
-                            brdf_cos = calc_brdf_cos(ray, use_record, new_ray);
                         }
                         //BRDFによるサンプリング
                         else {
@@ -691,11 +716,11 @@ vec3 launch_ray(Ray ray, int sample_number) {
 
                             new_ray = Ray(use_record.point, scatter_dir);
                             surface_pdf_value = cosine_pdf(scatter_dir, uvw.w);
-                            brdf_cos = calc_brdf_cos(ray, use_record, new_ray);
                         }
+                        brdf_cos = calc_brdf_cos(ray, use_record, new_ray);
 
                         //最終的なpdf値
-                        float sampling_pdf_value = 0.5 * surface_pdf_value + 0.5 * light_pdf_value;
+                        sampling_pdf_value = 0.5 * surface_pdf_value + 0.5 * light_pdf_value;
                         push_env(Environment(STATE_RETURN, env.ray, attenuation, emitted, sampling_pdf_value, brdf_cos, env.depth));
                         push_env(Environment(STATE_CALLED, new_ray, vec3(1.0), vec3(0.0), 1.0, 1.0, env.depth - 1));
                     }
@@ -705,8 +730,8 @@ vec3 launch_ray(Ray ray, int sample_number) {
 
             //再起終了
             case STATE_RETURN: {
-                //レンダリング方程式と同じ形
-                //albedo × BRDFcos × 入射輝度 / サンプリングPDF
+                // レンダリング方程式と同じ形
+                // 発光 + albedo × BRDFcos × 入射輝度 / サンプリングPDF
                 vec3 res_scattered = env.attenuation * env.brdf_cos * result / env.sampling_pdf_value;
                 vec3 res_emitted = env.emitted;
                 result = res_scattered + res_emitted;
