@@ -490,7 +490,7 @@ float reflectance(float cosine, float refraction_index) {
     r0 = r0 * r0;
     return r0 + (1 - r0) * pow((1 - cosine), 5);
 }
-//マテリアルごとのpdf値の計算
+//マテリアルごとの brdf x cosθ の計算
 float calc_brdf_cos(Ray ray, HitRecord hit_record, Ray scattered_ray) {
     float pdf_value;
 
@@ -627,7 +627,7 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
         }
         //最終的なpdf値
         scatter_record.pdf_value = light_pdf_value * 0.5 + surface_pdf_value * 0.5;
-        
+
         return true;
     }
     //金属面の場合
