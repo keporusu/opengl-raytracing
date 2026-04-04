@@ -495,11 +495,15 @@ float calc_brdf_cos(Ray ray, HitRecord hit_record, Ray scattered_ray) {
     float brdf_cos;
 
     switch(materials[hit_record.material].material_type) {
-        case MATERIAL_LAMBERTIAN: {
-            brdf_cos = 1.0 / (2.0 * PI);
+        case MATERIAL_LAMBERTIAN: {         
+            // cosθ = w_i・N
+            // カメラから光源へ向かうため scatterd_ray を使う                                                                                                                                       
+            float cos_theta = max(0.0, dot(scattered_ray.direction, hit_record.normal));
+            brdf_cos = cos_theta / PI;                                                                                                                  
             break;
-        }
+        }    
         default: {
+            //便宜上この値にしておく
             brdf_cos = 1.0;
             break;
         }
