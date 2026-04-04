@@ -407,7 +407,18 @@ void Scene::cornellBox()
             .emitted = glm::vec3(30.f),
         }},Rotation{.x=180.f});
 
-    addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(0.4f, 0.0f, -0.1f),
+    //ガラス玉
+    addPrimitive(Sphere{
+        glm::vec3(0.0f,-0.4f,0.3f),
+        0.1f,
+        Material{
+            .material_type=MATERIAL_DIELECTRIC,
+            .refraction_index=1.5f
+        }
+    });
+
+    //鏡面Box
+    addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(0.0f, 0.2f, -0.1f),
            Material{
                .material_type = MATERIAL_METAL,
                .albedo = glm::vec3(0.73f, 0.73f, 0.73f),

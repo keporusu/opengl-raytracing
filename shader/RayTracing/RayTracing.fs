@@ -629,8 +629,10 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
             ray_out = Ray(hit_record.point, scatter_dir);
             surface_pdf_value = cosine_pdf(scatter_dir, uvw.w);
         }
+
         //最終的なpdf値
         scatter_record.pdf_value = light_pdf_value * 0.5 + surface_pdf_value * 0.5;
+        scatter_record.skip_pdf = false;
 
         return true;
     }
@@ -642,13 +644,33 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
         vec3 scatter_dir = reflect(ray_in.direction, hit_record.normal);
         scatter_dir = normalize(scatter_dir) + mat.fuzz * random_unit_vector(seed_one);
         ray_out = Ray(hit_record.point, scatter_dir);
+
         scatter_record.pdf_value = 1.0;
         scatter_record.skip_pdf = true;
         return true;
     }
     //誘電体の場合
     else if(mat.material_type == MATERIAL_DIELECTRIC) {
-        return false;
+        //相対屈折率 ri=n2/n1（n1の媒質からn2の媒質に入る時）
+        //glslでは相対屈折率の逆数を取る
+        float abs_ri = mat.refraction_index;
+        float ri = hit_record.front_face ? 1.0 / abs_ri : abs_ri;
+        float cos_theta = min(dot(-ray_in.direction, hit_record.normal), 1.0);
+        float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+        vec3 scatter_dir;
+        //全反射
+        if(ri * sin_theta > 1.0 || reflectance(cos_theta, ri) > rand(seed)) {
+            scatter_dir = reflect(ray_in.direction, hit_record.normal);
+        }
+        //透過可能
+        else {
+            scatter_dir = refract(ray_in.direction, hit_record.normal, ri);
+        }
+        ray_out = Ray(hit_record.point, scatter_dir);
+        scatter_record.attenuation = vec3(1.0);
+        scatter_record.pdf_value = 1.0;
+        scatter_record.skip_pdf = true;
+        return true;
     } else if(mat.material_type == MATERIAL_DIFFUSE_LIGHT) {
         //TODO:ここの分岐必要ないかも（emittedがある場合、そもそもここに来ない）
         return false;
