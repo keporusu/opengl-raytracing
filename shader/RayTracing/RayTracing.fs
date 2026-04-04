@@ -492,19 +492,19 @@ float reflectance(float cosine, float refraction_index) {
 }
 //マテリアルごとの brdf x cosθ の計算
 float calc_brdf_cos(Ray ray, HitRecord hit_record, Ray scattered_ray) {
-    float pdf_value;
+    float brdf_cos;
 
     switch(materials[hit_record.material].material_type) {
         case MATERIAL_LAMBERTIAN: {
-            pdf_value = 1.0 / (2.0 * PI);
+            brdf_cos = 1.0 / (2.0 * PI);
             break;
         }
         default: {
-            pdf_value = 0.0;
+            brdf_cos = 1.0;
             break;
         }
     }
-    return pdf_value;
+    return brdf_cos;
 }
 //マテリアルによる散乱処理
 bool scatter(int material, Ray ray_in, HitRecord hit_record, out vec3 attenuation, out Ray ray_out, out float pdf_value, vec4 seed) {
@@ -583,16 +583,20 @@ bool scatter(int material, Ray ray_in, HitRecord hit_record, out vec3 attenuatio
 bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecord scatter_record, vec4 seed) {
     Material mat = materials[hit_record.material];
 
+    vec4 seed_zero = seed + 2432.0;
+    vec4 seed_one = seed + 13811.0;
+
     //Lambertian面の場合
     if(mat.material_type == MATERIAL_LAMBERTIAN) {
         scatter_record.attenuation = mat.albedo;
+        //テクスチャを持っているならalbedoをテクスチャで上書き
         if(mat.texture >= 0)
             scatter_record.attenuation = sample_texture(mat.texture, hit_record.uv);
         scatter_record.skip_pdf = false;
 
         //まずはサンプリング方法を選ぶ
         //ライト方向のサンプリング？BRDFによる方向？ 
-        bool select_light_dir = rand(seed + 123.) > 0.5;
+        bool select_light_dir = rand(seed_zero) > 0.5;
 
         float surface_pdf_value = 0.0;//brdfによるpdf
         float light_pdf_value = 0.0;//neeによるpdf
@@ -605,7 +609,7 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
             //TODO:四角形以外のライト+複数のライト対応する
             //ライトの形がQuadの場合
             if(light_source_prim_types[0] == PRIM_TYPE_QUAD) {
-                vec2 offset2 = rand2(seed + 18.);
+                vec2 offset2 = rand2(seed_one);
                 int light_source_index = light_source_prim_indices[0];
                 //ライト上のどこかをサンプリングする
                 on_light = quads[light_source_index].point + quads[light_source_index].u * offset2.x + quads[light_source_index].v * offset2.y;
@@ -619,7 +623,7 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
         //BRDFによるサンプリング
         else {
             OrthonomalBasis uvw = create_orthonomal_basis(hit_record.normal);
-            vec3 random_cos_dir = random_cosine_direction(seed + 10.);
+            vec3 random_cos_dir = random_cosine_direction(seed_one);
             vec3 scatter_dir = uvw.u * random_cos_dir.x + uvw.v * random_cos_dir.y + uvw.w * random_cos_dir.z;
 
             ray_out = Ray(hit_record.point, scatter_dir);
@@ -632,7 +636,15 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
     }
     //金属面の場合
     else if(mat.material_type == MATERIAL_METAL) {
-        return false;
+        scatter_record.attenuation = mat.albedo;
+        if(mat.texture >= 0)
+            scatter_record.attenuation = sample_texture(mat.texture, hit_record.uv);
+        vec3 scatter_dir = reflect(ray_in.direction, hit_record.normal);
+        scatter_dir = normalize(scatter_dir) + mat.fuzz * random_unit_vector(seed_one);
+        ray_out = Ray(hit_record.point, scatter_dir);
+        scatter_record.pdf_value = 1.0;
+        scatter_record.skip_pdf = true;
+        return true;
     }
     //誘電体の場合
     else if(mat.material_type == MATERIAL_DIELECTRIC) {
@@ -740,6 +752,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
             case STATE_RETURN: {
                 // レンダリング方程式と同じ形
                 // 発光 + albedo × BRDFcos × 入射輝度 / サンプリングPDF
+                // pdfの計算がない場合、pdr,brdf_cosはどちらも1.0になっている
                 vec3 res_scattered = env.attenuation * env.brdf_cos * result / env.sampling_pdf_value;
                 vec3 res_emitted = env.emitted;
                 result = res_scattered + res_emitted;
