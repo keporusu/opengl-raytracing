@@ -174,7 +174,6 @@ struct ScatterRecord {
     vec3 attenuation;
     float pdf_value;
     bool skip_pdf; //pdfを使うか？
-    Ray skip_pdf_ray; //pdfを用いずに決定したレイ（skip_pdfがtrueのとき）
 };
 //AABB
 struct AlignedBox {
@@ -499,9 +498,9 @@ float calc_brdf_cos(Ray ray, HitRecord hit_record, Ray scattered_ray) {
             // cosθ = w_i・N
             // カメラから光源へ向かうため scatterd_ray を使う                                                                                                                                       
             float cos_theta = max(0.0, dot(scattered_ray.direction, hit_record.normal));
-            brdf_cos = cos_theta / PI;                                                                                                                  
+            brdf_cos = cos_theta / PI;
             break;
-        }    
+        }
         default: {
             //便宜上この値にしておく
             brdf_cos = 1.0;
@@ -589,6 +588,7 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
 
     vec4 seed_zero = seed + 2432.0;
     vec4 seed_one = seed + 13811.0;
+    vec4 seed_two = seed + 393842.0;
 
     //Lambertian面の場合
     if(mat.material_type == MATERIAL_LAMBERTIAN) {
@@ -602,8 +602,13 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
         //ライト方向のサンプリング？BRDFによる方向？ 
         bool select_light_dir = rand(seed_zero) > 0.5;
 
+        //sufraceの戦略を取った場合、scatter方向にlightがあるかどうかを確認する必要がある
         float surface_pdf_value = 0.0;//brdfによるpdf
         float light_pdf_value = 0.0;//neeによるpdf
+
+        //ライト番号、ライトが付与されているprimitive番号
+        int light_index = 0;
+        int light_prim_index = light_source_prim_indices[light_index];
 
         //ライトのサンプリング
         if(select_light_dir) {
@@ -612,16 +617,18 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
 
             //TODO:四角形以外のライト+複数のライト対応する
             //ライトの形がQuadの場合
-            if(light_source_prim_types[0] == PRIM_TYPE_QUAD) {
+            if(light_source_prim_types[light_index] == PRIM_TYPE_QUAD) {
                 vec2 offset2 = rand2(seed_one);
-                int light_source_index = light_source_prim_indices[0];
                 //ライト上のどこかをサンプリングする
-                on_light = quads[light_source_index].point + quads[light_source_index].u * offset2.x + quads[light_source_index].v * offset2.y;
+                on_light = quads[light_prim_index].point + quads[light_prim_index].u * offset2.x + quads[light_prim_index].v * offset2.y;
                 scatter_dir = safe_normalize(on_light - hit_record.point);
             } else {
                 //ライトの形は四角形しか考慮していない
             }
+            //新しいレイ
             ray_out = Ray(hit_record.point, scatter_dir);
+            //それぞれのpdfの計算
+            surface_pdf_value = cosine_pdf(scatter_dir, hit_record.normal);
             light_pdf_value = light_pdf(hit_record, scatter_dir, on_light);
         }
         //BRDFによるサンプリング
@@ -629,9 +636,23 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
             OrthonomalBasis uvw = create_orthonomal_basis(hit_record.normal);
             vec3 random_cos_dir = random_cosine_direction(seed_one);
             vec3 scatter_dir = uvw.u * random_cos_dir.x + uvw.v * random_cos_dir.y + uvw.w * random_cos_dir.z;
-
+            //新しいレイ
             ray_out = Ray(hit_record.point, scatter_dir);
+            //それぞれのpdfの計算
             surface_pdf_value = cosine_pdf(scatter_dir, uvw.w);
+
+            //ライトにあたっている場合はlight_pdfも計算する必要がある
+            //TODO:この計算、light_pdf関数の中でできる気がするが...
+            if(light_source_prim_types[light_index] == PRIM_TYPE_QUAD) {
+                HitRecord hit_rec_light;
+                bool hit_to_light = hit_quad(quads[light_prim_index], ray_out, hit_rec_light, 1e-3, infinity);
+                if(hit_to_light) {
+                    vec3 on_light = hit_rec_light.point;
+                    light_pdf_value = light_pdf(hit_record, scatter_dir, on_light);
+                }
+            } else {
+                //ライトの形は四角形しか考慮していない
+            }
         }
 
         //最終的なpdf値
