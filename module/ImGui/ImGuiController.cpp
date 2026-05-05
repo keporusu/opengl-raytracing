@@ -31,7 +31,7 @@ void ImGuiController::Draw(Camera &camera, int sample_count)
 
     ImGui::Begin("Render Data");
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-    ImGui::Text("Smaple Count: %d", sample_count);
+    ImGui::Text("Sample Count: %d", sample_count);
 
     if (ImGui::CollapsingHeader("Camera"))
     {
