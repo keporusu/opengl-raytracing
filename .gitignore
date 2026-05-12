@@ -5,3 +5,5 @@ glslang/
 app
 test_app
 CLAUDE.md
+.DS_Store
+imgui.ini
