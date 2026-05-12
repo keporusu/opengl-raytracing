@@ -67,8 +67,6 @@ cmake --build build --parallel
 
 本リポジトリのコードは [MIT License](LICENSE) の下で公開されています。
 
-使用しているサードパーティライブラリのライセンス。
-
 | ライブラリ | ライセンス |
 |---|---|
 | [GLFW](https://www.glfw.org/) | zlib/libpng License |
