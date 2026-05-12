@@ -5,15 +5,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(OpenGL REQUIRED)
-find_package(assimp REQUIRED)
-
-# Homebrewのassimpが古いCLT SDKのzlibパスを参照する場合の修正
-if(APPLE)
-    get_target_property(_assimp_libs assimp::assimp INTERFACE_LINK_LIBRARIES)
-    if(_assimp_libs MATCHES "CommandLineTools")
-        set_target_properties(assimp::assimp PROPERTIES INTERFACE_LINK_LIBRARIES "")
-    endif()
-endif()
 
 include(FetchContent)
 FetchContent_Declare(
@@ -55,7 +46,6 @@ target_include_directories(app PRIVATE
 target_link_libraries(app PRIVATE
     OpenGL::GL
     glfw
-    assimp::assimp
 )
 
 if(APPLE)
