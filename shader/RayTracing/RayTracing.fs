@@ -600,7 +600,8 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
 
         //まずはサンプリング方法を選ぶ
         //ライト方向のサンプリング？BRDFによる方向？ 
-        bool select_light_dir = rand(seed_zero) > 0.5;
+        float select_light_probability = 0.5;
+        bool select_light_dir = rand(seed_zero) < select_light_probability;
 
         //sufraceの戦略を取った場合、scatter方向にlightがあるかどうかを確認する必要がある
         float surface_pdf_value = 0.0;//brdfによるpdf
@@ -651,12 +652,12 @@ bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecor
                     light_pdf_value = light_pdf(hit_record, scatter_dir, on_light);
                 }
             } else {
-                //ライトの形は四角形しか考慮していない
+                // ライトの形は四角形しか考慮していない
             }
         }
 
         //最終的なpdf値
-        scatter_record.pdf_value = light_pdf_value * 0.5 + surface_pdf_value * 0.5;
+        scatter_record.pdf_value = light_pdf_value * select_light_probability + surface_pdf_value * (1.0 - select_light_probability);
         scatter_record.skip_pdf = false;
 
         return true;

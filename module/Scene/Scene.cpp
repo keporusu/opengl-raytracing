@@ -5,11 +5,12 @@
 // シーン記述
 Scene::Scene()
 {
-    //threeBalls();
-    //manyBalls();
+    // threeBalls();
+    // manyBalls();
     cornellBox();
-    //showcase();
-    //mirrorCorridor();
+    // showcase();
+    // mirrorCorridor();
+    // boxWithOneLight();
     createMaterialMap();
     createBVH();
 }
@@ -399,33 +400,54 @@ void Scene::cornellBox()
 
     // 上ライト
     addPrimitive(Quad{
-        glm::vec3(-0.15f, 0.49f, 0.15f),
-        glm::vec3(0.3f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 0.0f, -0.3f),
-        Material{
-            .material_type = MATERIAL_DIFFUSE_LIGHT,
-            .emitted = glm::vec3(30.f),
-        }},Rotation{.x=180.f});
+                     glm::vec3(-0.15f, 0.49f, 0.15f),
+                     glm::vec3(0.3f, 0.0f, 0.0f),
+                     glm::vec3(0.0f, 0.0f, -0.3f),
+                     Material{
+                         .material_type = MATERIAL_DIFFUSE_LIGHT,
+                         .emitted = glm::vec3(50.f),
+                     }},
+                 Rotation{.x = 180.f});
 
-    //ガラス玉
-    addPrimitive(Sphere{
-        glm::vec3(0.0f,-0.4f,0.3f),
-        0.1f,
-        Material{
-            .material_type=MATERIAL_DIELECTRIC,
-            .refraction_index=1.5f
-        }
-    });
+    // ガラス玉
+    // addPrimitive(Sphere{
+    //     glm::vec3(0.0f, -0.4f, 0.3f),
+    //     0.1f,
+    //     Material{
+    //         .material_type = MATERIAL_DIELECTRIC,
+    //         .refraction_index = 1.5f}});
+
+    // addPrimitive(Sphere{
+    //     glm::vec3(0.0f, -0.4f, 0.3f),
+    //     0.09f,
+    //     Material{
+    //         .material_type = MATERIAL_DIELECTRIC,
+    //         .refraction_index = 1.0f/1.5f}});
+
+    // 箱の上金属球
+    // addPrimitive(Sphere{
+    //     glm::vec3(0.175f, -0.15f, 0.025f),
+    //     0.1f,
+    //     Material{
+    //         .material_type = MATERIAL_METAL,
+    //         .albedo = glm::vec3(0.0f, 0.5f, 1.0f),
+    //         .fuzz = 0.5f}});
 
     //鏡面Box
     addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(0.0f, 0.2f, -0.1f),
            Material{
                .material_type = MATERIAL_METAL,
                .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
-               .fuzz=0.0f
-           },
+               .fuzz = 0.0f},
            Rotation{.y = 30.0f});
-           
+
+    // addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(0.0f, 0.2f, -0.1f),
+    //        Material{
+    //            .material_type = MATERIAL_LAMBERTIAN,
+    //            .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+    //        },
+    //        Rotation{.y = 30.0f});
+
     addBox(glm::vec3(0.3f, -0.5f, -0.1f), glm::vec3(0.05f, -0.25f, 0.15f),
            Material{
                .material_type = MATERIAL_LAMBERTIAN,
@@ -560,4 +582,35 @@ void Scene::mirrorCorridor()
             .material_type = MATERIAL_DIFFUSE_LIGHT,
             .emitted = glm::vec3(15.0f, 15.0f, 15.0f),
         }});
+}
+
+void Scene::boxWithOneLight()
+{
+    addPrimitive(Quad(
+                     glm::vec3(-0.1f, 0.5f, -1.5f),
+                     glm::vec3(0.2f, 0.0f, 0.0f),
+                     glm::vec3(0.0f, -0.2f, 0.0f),
+                     Material{
+                         .material_type = MATERIAL_DIFFUSE_LIGHT,
+                         .emitted = glm::vec3(500.f),
+                     }),
+                 Rotation{.y = -180.0f});
+
+    addPrimitive(Quad{
+        glm::vec3(-0.5f, -0.5f, 0.5f),
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -1.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+        }});
+
+    addBox(
+        glm::vec3(0.3f, -0.5f, -0.1f),
+        glm::vec3(0.05f, -0.25f, 0.15f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+        },
+        Rotation{.y = -30.0f});
 }

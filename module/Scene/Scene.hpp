@@ -50,4 +50,5 @@ private:
     void cornellBox();
     void showcase();
     void mirrorCorridor();
+    void boxWithOneLight();
 };
