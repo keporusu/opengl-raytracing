@@ -3,7 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <stdexcept>
-#include <././glad/glad.h>
+#include <glad/glad.h>
 
 void ShaderManager::Load(const std::string &vertexShaderPath, const std::string &fragmentShaderPath)
 {

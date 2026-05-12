@@ -3,7 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <stdexcept>
-#include <././glad/glad.h>
+#include <glad/glad.h>
 #include "../../third_party/glm/gtc/type_ptr.hpp"
 
 void Shader::Load(const std::string &vertexShaderPath, const std::string &fragmentShaderPath)
