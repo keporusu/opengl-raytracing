@@ -5,11 +5,12 @@
 // シーン記述
 Scene::Scene()
 {
-    //threeBalls();
-    //manyBalls();
+    // threeBalls();
+    // manyBalls();
     cornellBox();
-    //showcase();
-    //mirrorCorridor();
+    // showcase();
+    // mirrorCorridor();
+    // boxWithOneLight();
     createMaterialMap();
     createBVH();
 }
@@ -34,12 +35,27 @@ void Scene::addPrimitive(Sphere sphere)
     sphereCount++;
 }
 
-void Scene::addPrimitive(Quad quad)
+void Scene::addPrimitive(Quad quad, Rotation rotation)
 {
     if (quadCount == MAX_QUADS)
     {
         return;
     }
+
+    // Quadの中心を軸に回転
+    glm::vec3 center = quad.origin + (quad.u + quad.v) * 0.5f;
+
+    glm::mat4 rotMat = glm::mat4(1.0f);
+    rotMat = glm::rotate(rotMat, glm::radians(rotation.x), glm::vec3(1, 0, 0));
+    rotMat = glm::rotate(rotMat, glm::radians(rotation.y), glm::vec3(0, 1, 0));
+    rotMat = glm::rotate(rotMat, glm::radians(rotation.z), glm::vec3(0, 0, 1));
+
+    quad.origin = glm::vec3(rotMat * glm::vec4(quad.origin - center, 1.0f)) + center;
+    quad.u = glm::vec3(rotMat * glm::vec4(quad.u, 0.0f));
+    quad.v = glm::vec3(rotMat * glm::vec4(quad.v, 0.0f));
+    quad.normal = glm::normalize(glm::cross(quad.u, quad.v));
+    quad.D = glm::dot(quad.origin, quad.normal);
+
     quad.original_index = quadCount;
     primitives.push_back(std::make_shared<Quad>(quad));
 
@@ -384,22 +400,55 @@ void Scene::cornellBox()
 
     // 上ライト
     addPrimitive(Quad{
-        glm::vec3(-0.15f, 0.49f, 0.15f),
-        glm::vec3(0.3f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 0.0f, -0.3f),
-        Material{
-            .material_type = MATERIAL_DIFFUSE_LIGHT,
-            .emitted = glm::vec3(30.f),
-        }});
+                     glm::vec3(-0.15f, 0.49f, 0.15f),
+                     glm::vec3(0.3f, 0.0f, 0.0f),
+                     glm::vec3(0.0f, 0.0f, -0.3f),
+                     Material{
+                         .material_type = MATERIAL_DIFFUSE_LIGHT,
+                         .emitted = glm::vec3(50.f),
+                     }},
+                 Rotation{.x = 180.f});
 
-    addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(-0.1f, -0.25f, -0.1f),
+    // ガラス玉
+    // addPrimitive(Sphere{
+    //     glm::vec3(0.0f, -0.4f, 0.3f),
+    //     0.1f,
+    //     Material{
+    //         .material_type = MATERIAL_DIELECTRIC,
+    //         .refraction_index = 1.5f}});
+
+    // addPrimitive(Sphere{
+    //     glm::vec3(0.0f, -0.4f, 0.3f),
+    //     0.09f,
+    //     Material{
+    //         .material_type = MATERIAL_DIELECTRIC,
+    //         .refraction_index = 1.0f/1.5f}});
+
+    // 箱の上金属球
+    // addPrimitive(Sphere{
+    //     glm::vec3(0.175f, -0.15f, 0.025f),
+    //     0.1f,
+    //     Material{
+    //         .material_type = MATERIAL_METAL,
+    //         .albedo = glm::vec3(0.0f, 0.5f, 1.0f),
+    //         .fuzz = 0.5f}});
+
+    //鏡面Box
+    addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(0.0f, 0.2f, -0.1f),
            Material{
-               .material_type = MATERIAL_LAMBERTIAN,
+               .material_type = MATERIAL_METAL,
                .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
-           },
+               .fuzz = 0.0f},
            Rotation{.y = 30.0f});
 
-    addBox(glm::vec3(0.3f, -0.5f, -0.1f), glm::vec3(0.05f, 0.0f, 0.15f),
+    // addBox(glm::vec3(-0.35f, -0.5f, -0.3f), glm::vec3(0.0f, 0.2f, -0.1f),
+    //        Material{
+    //            .material_type = MATERIAL_LAMBERTIAN,
+    //            .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+    //        },
+    //        Rotation{.y = 30.0f});
+
+    addBox(glm::vec3(0.3f, -0.5f, -0.1f), glm::vec3(0.05f, -0.25f, 0.15f),
            Material{
                .material_type = MATERIAL_LAMBERTIAN,
                .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
@@ -533,4 +582,35 @@ void Scene::mirrorCorridor()
             .material_type = MATERIAL_DIFFUSE_LIGHT,
             .emitted = glm::vec3(15.0f, 15.0f, 15.0f),
         }});
+}
+
+void Scene::boxWithOneLight()
+{
+    addPrimitive(Quad(
+                     glm::vec3(-0.1f, 0.5f, -1.5f),
+                     glm::vec3(0.2f, 0.0f, 0.0f),
+                     glm::vec3(0.0f, -0.2f, 0.0f),
+                     Material{
+                         .material_type = MATERIAL_DIFFUSE_LIGHT,
+                         .emitted = glm::vec3(500.f),
+                     }),
+                 Rotation{.y = -180.0f});
+
+    addPrimitive(Quad{
+        glm::vec3(-0.5f, -0.5f, 0.5f),
+        glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, -1.0f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+        }});
+
+    addBox(
+        glm::vec3(0.3f, -0.5f, -0.1f),
+        glm::vec3(0.05f, -0.25f, 0.15f),
+        Material{
+            .material_type = MATERIAL_LAMBERTIAN,
+            .albedo = glm::vec3(0.73f, 0.73f, 0.73f),
+        },
+        Rotation{.y = -30.0f});
 }

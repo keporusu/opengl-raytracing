@@ -4,6 +4,25 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define USE_BVH true
 
+#define MAX_SPHERES 100
+#define MAX_QUADS 100
+#define MATERIAL_MAX 100
+#define ERROR_COLOR vec3(1.0,0.0,1.0)
+#define MAX_BVH_NODES 500
+
+#define PRIM_TYPE_SPHERE 0
+#define PRIM_TYPE_QUAD 1
+
+#define MATERIAL_LAMBERTIAN 0
+#define MATERIAL_METAL 1
+#define MATERIAL_DIELECTRIC 2
+#define MATERIAL_DIFFUSE_LIGHT 10
+
+#define MAX_LIGHT_SOURCES 1
+#define LIGHT_SOURCE_1 5
+const int light_source_prim_types[MAX_LIGHT_SOURCES] = int[MAX_LIGHT_SOURCES](PRIM_TYPE_QUAD);
+const int light_source_prim_indices[MAX_LIGHT_SOURCES] = int[1](LIGHT_SOURCE_1);
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // utility
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,6 +47,18 @@ void swap(inout float a, inout float b) {
 vec3 safe_normalize(vec3 v) {
     float l = length(v);
     return l > eps ? v / l : vec3(0.0);
+}
+
+struct OrthonomalBasis {
+    vec3 u, v, w;
+};
+//法線周りに正規直交基底を作る
+OrthonomalBasis create_orthonomal_basis(vec3 n) {
+    vec3 w = normalize(n);
+    vec3 a = abs(n.x) > 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 v = normalize(cross(w, a));
+    vec3 u = cross(w, v);
+    return OrthonomalBasis(u, v, w);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 乱数
@@ -87,25 +118,17 @@ vec2 random_in_unit_disk(vec4 v) {
     }
     return vec2(0.0, 1.0);
 }
-//3次元
+//コサイン加重サンプリング
+vec3 random_cosine_direction(vec4 seed) {
+    vec2 rand2 = rand2(seed);
+    float phi = 2.0 * PI * rand2.x;
+    float x = cos(phi) * sqrt(rand2.y);
+    float y = sin(phi) * sqrt(rand2.y);
+    float z = sqrt(1.0 - rand2.y);
+
+    return vec3(x, y, z);
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-//////////////////////////////////////////////////////
-// Const
-//////////////////////////////////////////////////////
-#define MAX_SPHERES 100
-#define MAX_QUADS 100
-#define MATERIAL_MAX 100
-#define ERROR_COLOR vec3(1.0,0.0,1.0)
-#define MAX_BVH_NODES 500
-
-#define PRIM_TYPE_SPHERE 0
-#define PRIM_TYPE_QUAD 1
-
-#define MATERIAL_LAMBERTIAN 0
-#define MATERIAL_METAL 1
-#define MATERIAL_DIELECTRIC 2
-#define MATERIAL_DIFFUSE_LIGHT 3
 
 //////////////////////////////////////////////////////
 // Background Sky
@@ -119,7 +142,7 @@ vec3 one_big_light(float y) {
     a = pow(a, 10.0);
     return (1.0 - a) * vec3(0.0) + a * vec3(1.0, 1.0, 1.0);
 }
-vec3 dark(){
+vec3 dark() {
     return vec3(0.0);
 }
 vec3 background_sky(vec3 dir) {
@@ -143,7 +166,14 @@ struct HitRecord {
     bool front_face;
     int material;
     vec2 uv;
-    int primitive;
+    int prim_type;
+    int prim_index;
+};
+//散乱情報(PDF関連)
+struct ScatterRecord {
+    vec3 attenuation;
+    float pdf_value;
+    bool skip_pdf; //pdfを使うか？
 };
 //AABB
 struct AlignedBox {
@@ -264,7 +294,7 @@ bool hit_sphere(Sphere sphere, Ray ray, out HitRecord hit_record, float ray_tmin
     float theta = acos(-spherecal.y);
     float phi = atan(-spherecal.z, spherecal.x) + PI;
     hit_record.uv = vec2(phi / (2.0 * PI), theta / PI);
-    hit_record.primitive = PRIM_TYPE_SPHERE;
+    hit_record.prim_type = PRIM_TYPE_SPHERE;
 
     //交わった
     return true;
@@ -302,7 +332,7 @@ bool hit_quad(Quad quad, Ray ray, out HitRecord hit_record, float ray_tmin, floa
     vec3 outward_normal = quad.normal;
     hit_record.front_face = dot(outward_normal, ray.direction) < 0.0;
     hit_record.normal = hit_record.front_face ? outward_normal : -outward_normal;
-    hit_record.primitive = PRIM_TYPE_QUAD;
+    hit_record.prim_type = PRIM_TYPE_QUAD;
     hit_record.material = quad.material;
 
     return true;
@@ -371,6 +401,7 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
             if(hit && hit_record.ray_pram < min_dist) {
                 min_dist = hit_record.ray_pram;
                 use_record = hit_record;
+                use_record.prim_index = node.prim_index;
                 is_hit = true;
                 //best_primitive = node.prim_index;
             }
@@ -404,6 +435,7 @@ bool legacy_process_hitting(Ray ray, out HitRecord use_record) {
         //一番近いレイの交点
         if(hit_record.ray_pram < min_dist) {
             use_record = hit_record;
+            use_record.prim_index = i;
             min_dist = hit_record.ray_pram;
         }
     }
@@ -420,10 +452,32 @@ bool legacy_process_hitting(Ray ray, out HitRecord use_record) {
         //一番近いレイの交点
         if(hit_record.ray_pram < min_dist) {
             use_record = hit_record;
+            use_record.prim_index = i;
             min_dist = hit_record.ray_pram;
         }
     }
     return hit;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// PDF
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+float cosine_pdf(vec3 direction, vec3 w) {
+    float cosine_theta = dot(normalize(direction), w);
+    return max(0.0, cosine_theta / PI);
+}
+float light_pdf(HitRecord hit_record, vec3 direction, vec3 on_light) {
+    if(light_source_prim_types[0] == PRIM_TYPE_QUAD) {
+        int light_source_index = light_source_prim_indices[0];
+        Quad light_source = quads[light_source_index];
+
+        float dist_squared = dot(on_light - hit_record.point, on_light - hit_record.point);
+        vec3 n = cross(light_source.u, light_source.v);
+        float cosine = abs(dot(direction, n));
+        float area = length(n);
+        return dist_squared / (cosine * area);
+    } else {
+        return 0.0;
+    }
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 散乱処理（マテリアルの挙動）
@@ -435,8 +489,28 @@ float reflectance(float cosine, float refraction_index) {
     r0 = r0 * r0;
     return r0 + (1 - r0) * pow((1 - cosine), 5);
 }
+//マテリアルごとの brdf x cosθ の計算
+float calc_brdf_cos(Ray ray, HitRecord hit_record, Ray scattered_ray) {
+    float brdf_cos;
+
+    switch(materials[hit_record.material].material_type) {
+        case MATERIAL_LAMBERTIAN: {         
+            // cosθ = w_i・N
+            // カメラから光源へ向かうため scatterd_ray を使う                                                                                                                                       
+            float cos_theta = max(0.0, dot(scattered_ray.direction, hit_record.normal));
+            brdf_cos = cos_theta / PI;
+            break;
+        }
+        default: {
+            //便宜上この値にしておく
+            brdf_cos = 1.0;
+            break;
+        }
+    }
+    return brdf_cos;
+}
 //マテリアルによる散乱処理
-bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, out Ray scattered, vec4 seed) {
+bool scatter(int material, Ray ray_in, HitRecord hit_record, out vec3 attenuation, out Ray ray_out, out float pdf_value, vec4 seed) {
 
     //今回使うマテリアル
     Material use_material = materials[material];
@@ -465,7 +539,7 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
             if(use_material.texture >= 0)
                 albedo = sample_texture(use_material.texture, hit_record.uv);
             //鏡面反射
-            scatter_dir = reflect(ray.direction, hit_record.normal);
+            scatter_dir = reflect(ray_in.direction, hit_record.normal);
             //Fuzzy Reflection
             scatter_dir = normalize(scatter_dir) + (use_material.fuzz * random_unit_vector(seed));
             attenuation = albedo;
@@ -477,18 +551,22 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
             //glslでは相対屈折率の逆数を取る
             float abs_ri = use_material.refraction_index;
             float ri = hit_record.front_face ? 1.0 / abs_ri : abs_ri;
-            float cos_theta = min(dot(-ray.direction, hit_record.normal), 1.0);
+            float cos_theta = min(dot(-ray_in.direction, hit_record.normal), 1.0);
             float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
             //全反射
             if(ri * sin_theta > 1.0 || reflectance(cos_theta, ri) > rand(seed)) {
-                scatter_dir = reflect(ray.direction, hit_record.normal);
+                scatter_dir = reflect(ray_in.direction, hit_record.normal);
             }
             //透過可能
             else {
-                scatter_dir = refract(ray.direction, hit_record.normal, ri);
+                scatter_dir = refract(ray_in.direction, hit_record.normal, ri);
             }
             attenuation = vec3(1.0);
             break;
+        }
+        case MATERIAL_DIFFUSE_LIGHT: {
+            attenuation = vec3(0.0);
+            return false;
         }
         default: {
             attenuation = ERROR_COLOR;
@@ -498,9 +576,131 @@ bool scatter(int material, Ray ray, HitRecord hit_record, out vec3 attenuation, 
     }
 
     //新しいレイを作成
-    scattered = Ray(hit_record.point, normalize(scatter_dir));
+    ray_out = Ray(hit_record.point, normalize(scatter_dir));
+    //pdfの計算
+    pdf_value = calc_brdf_cos(ray_in, hit_record, ray_out);
 
     return true;
+}
+//マテリアルによる散乱処理（pdfを考慮した場合）
+bool scatter(Ray ray_in, out Ray ray_out, HitRecord hit_record, out ScatterRecord scatter_record, vec4 seed) {
+    Material mat = materials[hit_record.material];
+
+    vec4 seed_zero = seed + 2432.0;
+    vec4 seed_one = seed + 13811.0;
+    vec4 seed_two = seed + 393842.0;
+
+    //Lambertian面の場合
+    if(mat.material_type == MATERIAL_LAMBERTIAN) {
+        scatter_record.attenuation = mat.albedo;
+        //テクスチャを持っているならalbedoをテクスチャで上書き
+        if(mat.texture >= 0)
+            scatter_record.attenuation = sample_texture(mat.texture, hit_record.uv);
+        scatter_record.skip_pdf = false;
+
+        //まずはサンプリング方法を選ぶ
+        //ライト方向のサンプリング？BRDFによる方向？ 
+        float select_light_probability = 0.5;
+        bool select_light_dir = rand(seed_zero) < select_light_probability;
+
+        //sufraceの戦略を取った場合、scatter方向にlightがあるかどうかを確認する必要がある
+        float surface_pdf_value = 0.0;//brdfによるpdf
+        float light_pdf_value = 0.0;//neeによるpdf
+
+        //ライト番号、ライトが付与されているprimitive番号
+        int light_index = 0;
+        int light_prim_index = light_source_prim_indices[light_index];
+
+        //ライトのサンプリング
+        if(select_light_dir) {
+            vec3 scatter_dir;//反射方向
+            vec3 on_light;//サンプリングする位置
+
+            //TODO:四角形以外のライト+複数のライト対応する
+            //ライトの形がQuadの場合
+            if(light_source_prim_types[light_index] == PRIM_TYPE_QUAD) {
+                vec2 offset2 = rand2(seed_one);
+                //ライト上のどこかをサンプリングする
+                on_light = quads[light_prim_index].point + quads[light_prim_index].u * offset2.x + quads[light_prim_index].v * offset2.y;
+                scatter_dir = safe_normalize(on_light - hit_record.point);
+            } else {
+                //ライトの形は四角形しか考慮していない
+            }
+            //新しいレイ
+            ray_out = Ray(hit_record.point, scatter_dir);
+            //それぞれのpdfの計算
+            surface_pdf_value = cosine_pdf(scatter_dir, hit_record.normal);
+            light_pdf_value = light_pdf(hit_record, scatter_dir, on_light);
+        }
+        //BRDFによるサンプリング
+        else {
+            OrthonomalBasis uvw = create_orthonomal_basis(hit_record.normal);
+            vec3 random_cos_dir = random_cosine_direction(seed_one);
+            vec3 scatter_dir = uvw.u * random_cos_dir.x + uvw.v * random_cos_dir.y + uvw.w * random_cos_dir.z;
+            //新しいレイ
+            ray_out = Ray(hit_record.point, scatter_dir);
+            //それぞれのpdfの計算
+            surface_pdf_value = cosine_pdf(scatter_dir, uvw.w);
+
+            //ライトにあたっている場合はlight_pdfも計算する必要がある
+            //TODO:この計算、light_pdf関数の中でできる気がするが...
+            if(light_source_prim_types[light_index] == PRIM_TYPE_QUAD) {
+                HitRecord hit_rec_light;
+                bool hit_to_light = hit_quad(quads[light_prim_index], ray_out, hit_rec_light, 1e-3, infinity);
+                if(hit_to_light) {
+                    vec3 on_light = hit_rec_light.point;
+                    light_pdf_value = light_pdf(hit_record, scatter_dir, on_light);
+                }
+            } else {
+                // ライトの形は四角形しか考慮していない
+            }
+        }
+
+        //最終的なpdf値
+        scatter_record.pdf_value = light_pdf_value * select_light_probability + surface_pdf_value * (1.0 - select_light_probability);
+        scatter_record.skip_pdf = false;
+
+        return true;
+    }
+    //金属面の場合
+    else if(mat.material_type == MATERIAL_METAL) {
+        scatter_record.attenuation = mat.albedo;
+        if(mat.texture >= 0)
+            scatter_record.attenuation = sample_texture(mat.texture, hit_record.uv);
+        vec3 scatter_dir = reflect(ray_in.direction, hit_record.normal);
+        scatter_dir = normalize(scatter_dir) + mat.fuzz * random_unit_vector(seed_one);
+        ray_out = Ray(hit_record.point, scatter_dir);
+
+        scatter_record.pdf_value = 1.0;
+        scatter_record.skip_pdf = true;
+        return true;
+    }
+    //誘電体の場合
+    else if(mat.material_type == MATERIAL_DIELECTRIC) {
+        //相対屈折率 ri=n2/n1（n1の媒質からn2の媒質に入る時）
+        //glslでは相対屈折率の逆数を取る
+        float abs_ri = mat.refraction_index;
+        float ri = hit_record.front_face ? 1.0 / abs_ri : abs_ri;
+        float cos_theta = min(dot(-ray_in.direction, hit_record.normal), 1.0);
+        float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+        vec3 scatter_dir;
+        //全反射
+        if(ri * sin_theta > 1.0 || reflectance(cos_theta, ri) > rand(seed)) {
+            scatter_dir = reflect(ray_in.direction, hit_record.normal);
+        }
+        //透過可能
+        else {
+            scatter_dir = refract(ray_in.direction, hit_record.normal, ri);
+        }
+        ray_out = Ray(hit_record.point, scatter_dir);
+        scatter_record.attenuation = vec3(1.0);
+        scatter_record.pdf_value = 1.0;
+        scatter_record.skip_pdf = true;
+        return true;
+    } else if(mat.material_type == MATERIAL_DIFFUSE_LIGHT) {
+        //TODO:ここの分岐必要ないかも（emittedがある場合、そもそもここに来ない）
+        return false;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -514,8 +714,10 @@ int env_stack_count = 0;
 struct Environment {
     int state;//状態 0:再起開始 1:再帰呼び出し終了
     Ray ray;           // 今のレイ
-    vec3 accum_attenuation; // エネルギーの減衰
+    vec3 attenuation; // エネルギーの減衰
     vec3 emitted; //発光エネルギー
+    float sampling_pdf_value;//サンプリング戦略に基づくpdf値
+    float brdf_cos;//brdf*cosθ
     int depth;         // 再帰の深さ
 };
 Environment envs_stack[STACK_MAX]; //スタック
@@ -533,7 +735,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
 
     //const int max_depth=10;
     //最初のレイを飛ばす
-    push_env(Environment(STATE_CALLED, ray, vec3(1.0), vec3(0.0), max_depth));
+    push_env(Environment(STATE_CALLED, ray, vec3(1.0), vec3(0.0), 1.0, 1.0, max_depth));
     vec3 result = vec3(1.0);
 
     //スタックが空になるまで（8を超えたらそれは想定外の挙動ということで処理）
@@ -546,7 +748,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
             //深さが限界に達していたら終了
                 if(env.depth <= 0) {
                     //result = vec3(0.0);
-                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, vec3(0.0), env.depth));
+                    push_env(Environment(STATE_RETURN, env.ray, env.attenuation, env.emitted, env.sampling_pdf_value, env.brdf_cos, env.depth));
                     break;
                 }
 
@@ -563,25 +765,45 @@ vec3 launch_ray(Ray ray, int sample_number) {
                 if(!is_hit) {
                 //背景色
                     result = background_sky(env.ray.direction);
-                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, vec3(0.0), env.depth));
+                    push_env(Environment(STATE_RETURN, env.ray, env.attenuation, env.emitted, env.sampling_pdf_value, env.brdf_cos, env.depth));
                 }
             //当たった場合
                 else {
                     vec4 seed = vec4(TexCoord.xy * use_record.ray_pram * 10000.0, float(sample_number), float(env.depth));
-                    Ray new_ray;
-                    vec3 attenuation;
-                    scatter(use_record.material, env.ray, use_record, attenuation, new_ray, seed);
-                    vec3 new_accum_attenuation = env.accum_attenuation * attenuation;
+                    //以下は計算させる
+                    Ray new_ray;//次に発生するレイ
+                    ScatterRecord scatter_record;
+                    bool is_scatterd;
+                    is_scatterd = scatter(ray, new_ray, use_record, scatter_record, seed);
                     vec3 emitted = materials[use_record.material].emitted;
-                    push_env(Environment(STATE_RETURN, env.ray, env.accum_attenuation, emitted, env.depth));
-                    push_env(Environment(STATE_CALLED, new_ray, new_accum_attenuation, emitted, env.depth - 1));
+                    //面の向きが逆の場合、発光させない
+                    if(!use_record.front_face)
+                        emitted = vec3(0.0);
+                    //反射できなかった場合は、発光のエネルギーだけを返す
+                    //TODO:いらない可能性高い。後で下の処理に吸収させるかも
+                    if(!is_scatterd) {
+                        push_env(Environment(STATE_RETURN, env.ray, env.attenuation, emitted, env.sampling_pdf_value, env.brdf_cos, env.depth));
+                    }
+                    //反射できた場合
+                    else {
+                        // BRDF x cosθ の計算
+                        float brdf_cos = calc_brdf_cos(ray, use_record, new_ray);
+                        //再起終了・更に再起
+                        push_env(Environment(STATE_RETURN, env.ray, scatter_record.attenuation, emitted, scatter_record.pdf_value, brdf_cos, env.depth));
+                        push_env(Environment(STATE_CALLED, new_ray, vec3(1.0), vec3(0.0), 1.0, 1.0, env.depth - 1));
+                    }
                 }
                 break;
             }
 
             //再起終了
             case STATE_RETURN: {
-                result = result * env.accum_attenuation + env.emitted;
+                // レンダリング方程式と同じ形
+                // 発光 + albedo × BRDFcos × 入射輝度 / サンプリングPDF
+                // pdfの計算がない場合、pdr,brdf_cosはどちらも1.0になっている
+                vec3 res_scattered = env.attenuation * env.brdf_cos * result / env.sampling_pdf_value;
+                vec3 res_emitted = env.emitted;
+                result = res_scattered + res_emitted;
                 break;
             }
 

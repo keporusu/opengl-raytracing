@@ -36,7 +36,7 @@ private:
 
     // 図形の追加
     void addPrimitive(Sphere sphere);
-    void addPrimitive(Quad quad);
+    void addPrimitive(Quad quad, Rotation rotation = Rotation());
     void addBox(glm::vec3 p1, glm::vec3 p2, Material material, Rotation rotation);
 
     // マテリアルのバインド作成
@@ -50,4 +50,5 @@ private:
     void cornellBox();
     void showcase();
     void mirrorCorridor();
+    void boxWithOneLight();
 };
