@@ -34,7 +34,7 @@ public:
 
         // 近づく
         // camera.Zoom(inputSystem.GetScrollDelta() * deltaTime * 8.0f);
-        camera.OrbitRadius(inputSystem.GetScrollDelta() * deltaTime);
+        camera.OrbitRadius(inputSystem.GetScrollDelta() * 0.1f);
 
         // リセット
         if (inputSystem.IsKeyDown(GLFW_KEY_R))
