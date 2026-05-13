@@ -21,7 +21,7 @@ public:
         glfwSetScrollCallback(window, [](GLFWwindow *w, double x_offset, double y_offset)
                               {
             auto* self = static_cast<InputSystem*>(glfwGetWindowUserPointer(w));
-            self->scrollDelta = (float)y_offset; });
+            self->scrollAccum += (float)y_offset; });
     }
 
     void Update(GLFWwindow *window)
@@ -29,6 +29,9 @@ public:
         float nowSecond = (float)glfwGetTime();
         deltaSecond = nowSecond - lastSecond;
         lastSecond = nowSecond;
+
+        frameScrollDelta = scrollAccum;
+        scrollAccum = 0.0f;
 
         // 前フレームの状態を保存
         prevKeys = currKeys;
@@ -56,12 +59,13 @@ public:
 
     glm::vec2 GetMouseDelta() const { return currMousePos - prevMousePos; }
     glm::vec2 GetFrameBufferSize() const { return frameBufferSize; }
-    float GetScrollDelta() const { return scrollDelta; }
+    float GetScrollDelta() const { return frameScrollDelta; }
     float GetDeltaTime() const { return deltaSecond; }
 
 private:
     glm::vec2 frameBufferSize;
-    float scrollDelta;
+    float scrollAccum = 0.0f;
+    float frameScrollDelta = 0.0f;
     float lastSecond = 0.0f;
     float deltaSecond;
 

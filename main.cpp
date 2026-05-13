@@ -222,6 +222,7 @@ int main()
             raytracing_program.Use();
             raytracing_program.SetUniform("ray_sample_number", sample_count);
             raytracing_program.SetUniform("u_frame", (float)frame);
+            //テクスチャidをuniformに送信
             for (int i = 0; i < Texture::GetTextureCount(); i++)
             {
                 auto uniformSet = Texture::GetUniformData(i);
