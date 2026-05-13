@@ -17,11 +17,6 @@ public:
         // ポインタ登録
         glfwSetWindowUserPointer(window, this);
 
-        // フレームバッファの変更
-        glfwSetFramebufferSizeCallback(window, [](GLFWwindow *w, int width, int hegiht)
-                                       {
-            auto* self=static_cast<InputSystem*>(glfwGetWindowUserPointer(w));
-            self->frameBufferSize={width,hegiht}; });
         // スクロール
         glfwSetScrollCallback(window, [](GLFWwindow *w, double x_offset, double y_offset)
                               {

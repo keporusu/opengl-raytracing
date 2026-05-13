@@ -29,6 +29,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
@@ -60,6 +61,10 @@ int main()
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
+
+    int fbW, fbH;
+    glfwGetFramebufferSize(window.get(), &fbW, &fbH);
+    glViewport(0, 0, fbW, fbH);
 
     ////
     // ImGui初期化
@@ -175,6 +180,9 @@ int main()
 
         // 入力処理
         inputSystem.Update(window.get());
+
+        glfwGetFramebufferSize(window.get(), &fbW, &fbH);
+
         cameraController.ApplyInput(camera, inputSystem);
 
         // uniform関連
@@ -197,6 +205,7 @@ int main()
         // レイトレーシングパス////////////////
         {
             glBindFramebuffer(GL_FRAMEBUFFER, accumFBO); // フレームバッファの指定
+            glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
             // 1サンプル目ならフレームバッファは初期化する
             if (sample_count == 1)
@@ -233,6 +242,7 @@ int main()
         // 描画パス////////////////////
         {
             glBindFramebuffer(GL_FRAMEBUFFER, GL_NO_BINDING); // デフォルトのフレームバッファに戻す
+            glViewport(0, 0, fbW, fbH);
             glDisable(GL_BLEND);
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT); // 画面を初期化

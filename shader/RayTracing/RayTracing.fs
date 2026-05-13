@@ -840,8 +840,8 @@ void main() {
     vec3 viewport_center = camera_pos - z_unit * focus_dist;
 
     //今回のピクセルに対応するviewportの座標（yを-1~1に合わせる）
-    float viewport_x = (TexCoord.y * 4.0 - 1.0) * h * focus_dist;
-    float viewport_y = (TexCoord.x * 4.0 - 1.0) * h * focus_dist * aspect_ratio;
+    float viewport_x = (TexCoord.y * 2.0 - 1.0) * h * focus_dist;
+    float viewport_y = (TexCoord.x * 2.0 - 1.0) * h * focus_dist * aspect_ratio;
     //vec3 viewport_loc = vec3(viewport_y, viewport_x, camera_pos.z - focus_dist);
     vec3 viewport_loc = viewport_center + viewport_x * x_unit + viewport_y * y_unit;
 
