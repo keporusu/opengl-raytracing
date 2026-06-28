@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <cmath>
+#include "module/RendererSettings.hpp"
 #include "module/Loader/ModelLoader.hpp"
 #include "module/Shader/Shader.hpp"
 #include "module/Texture/Texture.hpp"
@@ -16,8 +17,6 @@
 #include "module/InputSystem/InputSystem.hpp"
 
 #define GL_NO_BINDING 0
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
 
 int main()
 {
@@ -159,6 +158,12 @@ int main()
     raytracing_program.BindUniformBlock("BVHBlock", 3);
 
     ////
+    // Rendering Loop 情報
+    ////
+    int sample_count = 0;
+    int frame = 0;
+
+    ////
     // 入力
     ////
     InputSystem inputSystem;
@@ -182,18 +187,30 @@ int main()
     imguiController.OnUpdateDefocusAngle=[&camera](float defocusAngle){
         camera.SetDefocusAngle(defocusAngle);
     };
-    imguiController.OnClickCornellBox=[&](){
-        //TODO:シーン切り替え
+
+    // シーン切り替え時のUBO再アップロード
+    auto uploadSceneUBO = [&](){
+        glBindBuffer(GL_UNIFORM_BUFFER, primitivesUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_Primitives), scene.GetPrimitivesUBO());
+        glBindBuffer(GL_UNIFORM_BUFFER, materialsUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_Materials), scene.GetMateialsUBO());
+        glBindBuffer(GL_UNIFORM_BUFFER, bvhUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_BVH), scene.GetBVHUBO());
+        glBindBuffer(GL_UNIFORM_BUFFER, GL_NO_BINDING);
+        sample_count = 0;
     };
-    imguiController.OnClickManyBalls=[&](){
-        //TODO:シーン切り替え
+    imguiController.OnClickCornellBox = [&](){
+        scene.LoadCornellBox();
+        uploadSceneUBO();
+    };
+    imguiController.OnClickManyBalls = [&](){
+        scene.LoadManyBalls();
+        uploadSceneUBO();
     };
 
     ////
-    // Rendering Loop
-    ////
-    int sample_count = 0;
-    int frame = 0;
+    // レンダリングループ
+    ///
     while (!glfwWindowShouldClose(window.get()))
     {
 
@@ -241,6 +258,7 @@ int main()
             raytracing_program.Use();
             raytracing_program.SetUniform("ray_sample_number", sample_count);
             raytracing_program.SetUniform("u_frame", (float)frame);
+            raytracing_program.SetUniform("u_sky_type", SKY_TYPE_A_BIG_LIGHT);
             //テクスチャidをuniformに送信
             for (int i = 0; i < Texture::GetTextureCount(); i++)
             {

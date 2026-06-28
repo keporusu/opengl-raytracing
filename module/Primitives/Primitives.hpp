@@ -1,13 +1,9 @@
 #pragma once
-#include "../BufferSizeSettings.hpp"
+#include "../RendererSettings.hpp"
 #include "../../third_party/glm/glm.hpp"
 #include "../../third_party/glm/gtc/matrix_transform.hpp"
 #include "../Materials/Materials.hpp"
 #include "../BVH/AABB.hpp"
-
-// プリミティブタイプ定数（シェーダー側と一致させる）
-#define PRIM_TYPE_SPHERE 0
-#define PRIM_TYPE_QUAD 1
 
 struct Primitive
 {

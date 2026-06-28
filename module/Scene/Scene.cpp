@@ -5,14 +5,38 @@
 // シーン記述
 Scene::Scene()
 {
-    // threeBalls();
-    manyBalls();
-    // cornellBox();
-    // showcase();
-    // mirrorCorridor();
-    // boxWithOneLight();
+    LoadManyBalls();
+}
+
+void Scene::clear()
+{
+    primitives.clear();
+    primitives_ubo = UBO_Primitives{};
+    materials_ubo = UBO_Materials{};
+    bvh_ubo = UBO_BVH{};
+    sphereCount = 0;
+    quadCount = 0;
+    materialCount = 0;
+}
+
+void Scene::build()
+{
     createMaterialMap();
     createBVH();
+}
+
+void Scene::LoadCornellBox()
+{
+    clear();
+    cornellBox();
+    build();
+}
+
+void Scene::LoadManyBalls()
+{
+    clear();
+    manyBalls();
+    build();
 }
 
 void Scene::addPrimitive(Sphere sphere)
