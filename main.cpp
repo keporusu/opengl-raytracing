@@ -162,7 +162,7 @@ int main()
     ////
     int sample_count = 0;
     int frame = 0;
-    int skyType = SKY_TYPE_A_BIG_LIGHT;
+    int skyType = SKY_TYPE_BLUE;
 
     ////
     // 入力
@@ -177,7 +177,8 @@ int main()
         window.get(),
         camera.GetVfov(),
         camera.GetFocusDist(),
-        camera.GetDefocusAngle()
+        camera.GetDefocusAngle(),
+        skyType
     );
     imguiController.OnUpdateVfov=[&camera](float vfov){
         camera.SetVfov(vfov);

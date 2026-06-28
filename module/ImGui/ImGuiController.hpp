@@ -10,7 +10,7 @@ class ImGuiController{
 
     public:
 
-    ImGuiController(GLFWwindow *window,float uiVFov,float uiFocusDist,float uiDefocusAngle);
+    ImGuiController(GLFWwindow *window,float uiVFov,float uiFocusDist,float uiDefocusAngle,int uiSkyType);
 
     void SetCameraPosition(float x,float y,float z);
     void SetSampleCount(int n);

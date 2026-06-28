@@ -2,7 +2,7 @@
 #include <GLFW/glfw3.h>
 #include "../RendererSettings.hpp"
 
-ImGuiController::ImGuiController(GLFWwindow *window,float uiVFov,float uiFocusDist,float uiDefocusAngle)
+ImGuiController::ImGuiController(GLFWwindow *window,float uiVFov,float uiFocusDist,float uiDefocusAngle, int uiSkyType)
 {
 
     // GLFW・OpenGLの初期化後に実行
@@ -20,7 +20,7 @@ ImGuiController::ImGuiController(GLFWwindow *window,float uiVFov,float uiFocusDi
     this->uiVFov=uiVFov;
     this->uiFocusDist=uiFocusDist;
     this->uiDefocusAngle=uiDefocusAngle;
-    this->uiSkyType=SKY_TYPE_BLUE;
+    this->uiSkyType=uiSkyType;
 }
 
 void ImGuiController::SetCameraPosition(float x,float y,float z){
