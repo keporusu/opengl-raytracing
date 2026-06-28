@@ -1,8 +1,8 @@
 #include "ImGuiController.hpp"
-#include "../Camera/Camera.hpp"
 #include <GLFW/glfw3.h>
+#include "../RendererSettings.hpp"
 
-ImGuiController::ImGuiController(GLFWwindow *window)
+ImGuiController::ImGuiController(GLFWwindow *window,float uiVFov,float uiFocusDist,float uiDefocusAngle)
 {
 
     // GLFW・OpenGLの初期化後に実行
@@ -15,9 +15,24 @@ ImGuiController::ImGuiController(GLFWwindow *window)
     // バックエンドの初期化
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
+
+    //ui内部の値を初期化
+    this->uiVFov=uiVFov;
+    this->uiFocusDist=uiFocusDist;
+    this->uiDefocusAngle=uiDefocusAngle;
+    this->uiSkyType=SKY_TYPE_A_BIG_LIGHT;
 }
 
-void ImGuiController::Draw(Camera &camera, int sample_count)
+void ImGuiController::SetCameraPosition(float x,float y,float z){
+    uiCameraX=x;
+    uiCameraY=y;
+    uiCameraZ=z;
+}
+void ImGuiController::SetSampleCount(int n){
+    uiSampleCount=n;
+}
+
+void ImGuiController::Draw()
 {
 
     // ImGuiフレーム開始
@@ -27,24 +42,46 @@ void ImGuiController::Draw(Camera &camera, int sample_count)
 
     // ---- UIの定義 ----
     ImGui::SetWindowPos(ImVec2(-100, -100), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(200, 50), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(200, 150), ImGuiCond_Once);
 
     ImGui::Begin("Render Data");
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-    ImGui::Text("Sample Count: %d", sample_count);
+    ImGui::Text("Sample Count: %d", uiSampleCount);
+
+    if(ImGui::CollapsingHeader("Scene")){
+        if(ImGui::Button("Cornell Box",ImVec2(160,20))){
+            if(OnClickCornellBox) OnClickCornellBox();
+        }
+        if(ImGui::Button("Many Balls",ImVec2(160,20))){
+            if(OnClickManyBalls) OnClickManyBalls();
+        }
+    }
+
+    if(ImGui::CollapsingHeader("Sky")){
+        if(ImGui::RadioButton("Blue", &uiSkyType, SKY_TYPE_BLUE)){
+            if(OnUpdateSkyType) OnUpdateSkyType(uiSkyType);
+        }
+        if(ImGui::RadioButton("Dark", &uiSkyType, SKY_TYPE_DARK)){
+            if(OnUpdateSkyType) OnUpdateSkyType(uiSkyType);
+        }
+        if(ImGui::RadioButton("A Big Light", &uiSkyType, SKY_TYPE_A_BIG_LIGHT)){
+            if(OnUpdateSkyType) OnUpdateSkyType(uiSkyType);
+        }
+    }
 
     if (ImGui::CollapsingHeader("Camera"))
     {
-        glm::vec3 pos = camera.GetPosition();
-        ImGui::Text("Position: (%.1f,%.1f,%.1f)", pos.x, pos.y, pos.z);
+        ImGui::Text("Position: (%.1f,%.1f,%.1f)", uiCameraX,uiCameraY,uiCameraZ);
         // ImGui::Text("    vFOV: %.1f", camera.GetVfov());
-        float vfov = camera.GetVfov(), focusDist = camera.GetFocusDist(), defousAngle = camera.GetDefocusAngle();
-        if (ImGui::DragFloat("vFov", &vfov, 0.2f, 20.f, 120.f))
-            camera.SetVfov(vfov);
-        if (ImGui::DragFloat("Focus Dist", &focusDist, 0.2f, 1.0f, 10.0f))
-            camera.SetFocusDist(focusDist);
-        if (ImGui::DragFloat("Defocus Angle", &defousAngle, 0.2f, 0.0f, 10.0f))
-            camera.SetDefocusAngle(defousAngle);
+        if (ImGui::DragFloat("vFov", &uiVFov, 0.2f, 20.f, 120.f)){
+            if(OnUpdateVfov)OnUpdateVfov(uiVFov);
+        }
+        if (ImGui::DragFloat("Focus Dist", &uiFocusDist, 0.2f, 1.0f, 10.0f)){
+            if(OnUpdateFocusDist)OnUpdateFocusDist(uiFocusDist);
+        }
+        if (ImGui::DragFloat("Defocus Angle", &uiDefocusAngle, 0.2f, 0.0f, 10.0f)){
+            if(OnUpdateDefocusAngle)OnUpdateDefocusAngle(uiDefocusAngle);
+        }
     }
     ImGui::End();
     //------------------

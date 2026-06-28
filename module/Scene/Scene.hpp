@@ -22,6 +22,10 @@ public:
     UBO_Primitives *GetPrimitivesUBO() { return &primitives_ubo; }
     UBO_Materials *GetMateialsUBO() { return &materials_ubo; }
 
+    // シーン切り替え
+    void LoadCornellBox();
+    void LoadManyBalls();
+
 private:
     std::vector<std::shared_ptr<Primitive>> primitives;
 
@@ -38,6 +42,10 @@ private:
     void addPrimitive(Sphere sphere);
     void addPrimitive(Quad quad, Rotation rotation = Rotation());
     void addBox(glm::vec3 p1, glm::vec3 p2, Material material, Rotation rotation);
+
+    // シーン構築のヘルパ
+    void clear();
+    void build();
 
     // マテリアルのバインド作成
     void createMaterialMap();

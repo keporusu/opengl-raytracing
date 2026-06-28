@@ -5,14 +5,38 @@
 // シーン記述
 Scene::Scene()
 {
-    // threeBalls();
-    // manyBalls();
-    cornellBox();
-    // showcase();
-    // mirrorCorridor();
-    // boxWithOneLight();
+    LoadManyBalls();
+}
+
+void Scene::clear()
+{
+    primitives.clear();
+    primitives_ubo = UBO_Primitives{};
+    materials_ubo = UBO_Materials{};
+    bvh_ubo = UBO_BVH{};
+    sphereCount = 0;
+    quadCount = 0;
+    materialCount = 0;
+}
+
+void Scene::build()
+{
     createMaterialMap();
     createBVH();
+}
+
+void Scene::LoadCornellBox()
+{
+    clear();
+    cornellBox();
+    build();
+}
+
+void Scene::LoadManyBalls()
+{
+    clear();
+    manyBalls();
+    build();
 }
 
 void Scene::addPrimitive(Sphere sphere)
@@ -249,14 +273,14 @@ void Scene::threeBalls()
 
 void Scene::manyBalls()
 {
-    addPrimitive(Quad{
-        glm::vec3(0.0f, 0.0f, 1.5f),
-        glm::vec3(1.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 1.0f, 0.0f),
-        Material{
-            .material_type = MATERIAL_DIFFUSE_LIGHT,
-            .emitted = glm::vec3(0.0f, 7.0f, 0.0f),
-        }});
+    // addPrimitive(Quad{
+    //     glm::vec3(0.0f, 0.0f, 1.5f),
+    //     glm::vec3(1.0f, 0.0f, 0.0f),
+    //     glm::vec3(0.0f, 1.0f, 0.0f),
+    //     Material{
+    //         .material_type = MATERIAL_DIFFUSE_LIGHT,
+    //         .emitted = glm::vec3(0.0f, 7.0f, 0.0f),
+    //     }});
 
     std::mt19937 rng(std::random_device{}());
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);

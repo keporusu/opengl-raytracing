@@ -2,26 +2,41 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // settings
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//BVHを使うか？
 #define USE_BVH true
 
+// プリミティブの最大描画数
 #define MAX_SPHERES 100
 #define MAX_QUADS 100
+// 使えるマテリアルの最大数
 #define MATERIAL_MAX 100
-#define ERROR_COLOR vec3(1.0,0.0,1.0)
+//BVHに使えるノードの最大数
 #define MAX_BVH_NODES 500
 
+// プリミティブタイプ定数
 #define PRIM_TYPE_SPHERE 0
 #define PRIM_TYPE_QUAD 1
 
+// マテリアルタイプ定数
 #define MATERIAL_LAMBERTIAN 0
 #define MATERIAL_METAL 1
 #define MATERIAL_DIELECTRIC 2
 #define MATERIAL_DIFFUSE_LIGHT 10
 
+// レイが当たらなかったときにサンプルする色（背景）のタイプ定数
+#define SKY_TYPE_BLUE 0
+#define SKY_TYPE_DARK 1
+#define SKY_TYPE_A_BIG_LIGHT 2
+
+// ライト関連定数
 #define MAX_LIGHT_SOURCES 1
 #define LIGHT_SOURCE_1 5
+
 const int light_source_prim_types[MAX_LIGHT_SOURCES] = int[MAX_LIGHT_SOURCES](PRIM_TYPE_QUAD);
 const int light_source_prim_indices[MAX_LIGHT_SOURCES] = int[1](LIGHT_SOURCE_1);
+
+#define ERROR_COLOR vec3(1.0,0.0,1.0)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // utility
@@ -130,26 +145,7 @@ vec3 random_cosine_direction(vec4 seed) {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////
-// Background Sky
-//////////////////////////////////////////////////////
-vec3 blue_sky(float y) {
-    float a = 0.5 * (y + 1.0);
-    return (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
-}
-vec3 one_big_light(float y) {
-    float a = 0.5 * (y + 1.0);
-    a = pow(a, 10.0);
-    return (1.0 - a) * vec3(0.0) + a * vec3(1.0, 1.0, 1.0);
-}
-vec3 dark() {
-    return vec3(0.0);
-}
-vec3 background_sky(vec3 dir) {
-    //return blue_sky(dir.y);
-    //return dark();
-    return one_big_light(dir.y);
-}
+
 //////////////////////////////////////////////////////
 // データ構造
 //////////////////////////////////////////////////////
@@ -253,6 +249,26 @@ vec3 sample_texture(int texture_index, vec2 uv) {
     if(texture_index == 0)
         return texture(u_texture0, uv).xyz;
     return ERROR_COLOR;
+}
+
+// Background Sky
+uniform int u_sky_type;
+vec3 background_sky(vec3 dir) {
+    if(u_sky_type==SKY_TYPE_BLUE){
+        float a = 0.5 * (dir.y + 1.0);
+        return (1.0 - a) * vec3(1.0, 1.0, 1.0) + a * vec3(0.5, 0.7, 1.0);
+    }
+    else if(u_sky_type==SKY_TYPE_DARK){
+        return vec3(0.0);
+    }
+    else if(u_sky_type==SKY_TYPE_A_BIG_LIGHT){
+        float a = 0.5 * (dir.y + 1.0);
+        a = pow(a, 10.0);
+        return (1.0 - a) * vec3(0.0) + a * vec3(1.0, 1.0, 1.0);
+    }
+    else{
+        return ERROR_COLOR;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,5 @@
 #pragma once
-#include "../BufferSizeSettings.hpp"
+#include "../RendererSettings.hpp"
 #include "AABB.hpp"
 #include "../Primitives/Primitives.hpp"
 #include <vector>

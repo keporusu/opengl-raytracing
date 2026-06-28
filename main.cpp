@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <cmath>
+#include "module/RendererSettings.hpp"
 #include "module/Loader/ModelLoader.hpp"
 #include "module/Shader/Shader.hpp"
 #include "module/Texture/Texture.hpp"
@@ -16,8 +17,6 @@
 #include "module/InputSystem/InputSystem.hpp"
 
 #define GL_NO_BINDING 0
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
 
 int main()
 {
@@ -67,11 +66,6 @@ int main()
     glViewport(0, 0, fbW, fbH);
 
     ////
-    // ImGui初期化
-    ////
-    ImGuiController imguiController(window.get());
-
-    ////
     // 蓄積用テクスチャ用意
     ////
     unsigned accumTexture;
@@ -93,6 +87,7 @@ int main()
     Scene scene;
     //カメラ
     Camera camera(0.9f, (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
+    CameraController cameraController;
 
     GLuint VBO, VAO, EBO;
 
@@ -163,18 +158,64 @@ int main()
     raytracing_program.BindUniformBlock("BVHBlock", 3);
 
     ////
+    // Rendering Loop 情報
+    ////
+    int sample_count = 0;
+    int frame = 0;
+    int skyType = SKY_TYPE_A_BIG_LIGHT;
+
+    ////
     // 入力
     ////
     InputSystem inputSystem;
     inputSystem.Init(window.get());
 
-    CameraController cameraController;
+    ////
+    // ImGui初期化
+    ////
+    ImGuiController imguiController(
+        window.get(),
+        camera.GetVfov(),
+        camera.GetFocusDist(),
+        camera.GetDefocusAngle()
+    );
+    imguiController.OnUpdateVfov=[&camera](float vfov){
+        camera.SetVfov(vfov);
+    };
+    imguiController.OnUpdateFocusDist=[&camera](float focusDist){
+        camera.SetFocusDist(focusDist);
+    };
+    imguiController.OnUpdateDefocusAngle=[&camera](float defocusAngle){
+        camera.SetDefocusAngle(defocusAngle);
+    };
+    imguiController.OnUpdateSkyType=[&](int type){
+        skyType=type;
+        sample_count=0;
+    };
+
+    // シーン切り替え時のUBO再アップロード
+    auto uploadSceneUBO = [&](){
+        glBindBuffer(GL_UNIFORM_BUFFER, primitivesUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_Primitives), scene.GetPrimitivesUBO());
+        glBindBuffer(GL_UNIFORM_BUFFER, materialsUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_Materials), scene.GetMateialsUBO());
+        glBindBuffer(GL_UNIFORM_BUFFER, bvhUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(UBO_BVH), scene.GetBVHUBO());
+        glBindBuffer(GL_UNIFORM_BUFFER, GL_NO_BINDING);
+        sample_count = 0;
+    };
+    imguiController.OnClickCornellBox = [&](){
+        scene.LoadCornellBox();
+        uploadSceneUBO();
+    };
+    imguiController.OnClickManyBalls = [&](){
+        scene.LoadManyBalls();
+        uploadSceneUBO();
+    };
 
     ////
-    // Rendering Loop
-    ////
-    int sample_count = 0;
-    int frame = 0;
+    // レンダリングループ
+    ///
     while (!glfwWindowShouldClose(window.get()))
     {
 
@@ -222,6 +263,7 @@ int main()
             raytracing_program.Use();
             raytracing_program.SetUniform("ray_sample_number", sample_count);
             raytracing_program.SetUniform("u_frame", (float)frame);
+            raytracing_program.SetUniform("u_sky_type", skyType);
             //テクスチャidをuniformに送信
             for (int i = 0; i < Texture::GetTextureCount(); i++)
             {
@@ -257,21 +299,16 @@ int main()
             glBindTexture(GL_TEXTURE_2D, accumTexture);
             // 描画
             glBindVertexArray(VAO);
-            // auto start = std::chrono::high_resolution_clock::now();
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-            // auto end = std::chrono::high_resolution_clock::now();
-            // drawTime += (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-            // if (frame % 20 == 0)
-            // {
-            //     std::cout << "DrawTime:" << drawTime / 20.0 << std::endl;
-            //     drawTime = 0.0;
-            // }
             glBindVertexArray(GL_NO_BINDING);
         }
         //////////////////////////////////////////////////
 
         // imgui
-        imguiController.Draw(camera, sample_count);
+        glm::vec3 cameraPosition=camera.GetPosition();
+        imguiController.SetCameraPosition(cameraPosition.x,cameraPosition.y,cameraPosition.z);
+        imguiController.SetSampleCount(sample_count);
+        imguiController.Draw();
 
         // glfw: イベントのトリガをチェック、フレームバッファの入れ替え（ここで初めて画面に見える）
         glfwPollEvents();

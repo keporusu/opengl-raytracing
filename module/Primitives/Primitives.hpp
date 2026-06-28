@@ -1,13 +1,9 @@
 #pragma once
-#include "../BufferSizeSettings.hpp"
+#include "../RendererSettings.hpp"
 #include "../../third_party/glm/glm.hpp"
 #include "../../third_party/glm/gtc/matrix_transform.hpp"
 #include "../Materials/Materials.hpp"
 #include "../BVH/AABB.hpp"
-
-// プリミティブタイプ定数（シェーダー側と一致させる）
-#define PRIM_TYPE_SPHERE 0
-#define PRIM_TYPE_QUAD 1
 
 struct Primitive
 {
@@ -85,10 +81,10 @@ struct SubUBO_Quad
 
 struct UBO_Primitives
 {
-    int sphere_count;   // 4
-    float _padding0[3]; // 16
-    SubUBO_Sphere spheres[MAX_SPHERES];
-    int quad_count;
-    float _padding1[3];
-    SubUBO_Quad quads[MAX_QUADS];
+    int sphere_count;                   // 4
+    float _padding0[3];                 // パディング 16
+    SubUBO_Sphere spheres[MAX_SPHERES]; // 16バイト目から開始 48
+    int quad_count;                     // 52
+    float _padding1[3];                 // パディング 64
+    SubUBO_Quad quads[MAX_QUADS];       // 64バイト目から開始 144
 };

@@ -1,13 +1,8 @@
-#include "../BufferSizeSettings.hpp"
+#include "../RendererSettings.hpp"
 #include "../../third_party/glm/glm.hpp"
 #include "../../third_party/glm/gtc/matrix_transform.hpp"
 #include <iostream>
 #include <string>
-
-#define MATERIAL_LAMBERTIAN 0
-#define MATERIAL_METAL 1
-#define MATERIAL_DIELECTRIC 2
-#define MATERIAL_DIFFUSE_LIGHT 10
 
 struct Material
 {
@@ -36,5 +31,5 @@ struct UBO_Materials
 {
     int material_count; // offset 4の倍数
     float _padding2[3]; // パディング
-    SubUBO_Material materials[MAX_MATERIALS];
+    SubUBO_Material materials[MAX_MATERIALS]; //16バイト目から開始 80
 };
