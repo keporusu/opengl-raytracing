@@ -21,6 +21,7 @@ class ImGuiController{
     std::function<void(float)> OnUpdateVfov;
     std::function<void(float)> OnUpdateFocusDist;
     std::function<void(float)> OnUpdateDefocusAngle;
+    std::function<void(int)> OnUpdateSkyType;
     std::function<void()> OnClickCornellBox;
     std::function<void()> OnClickManyBalls;
 
@@ -30,5 +31,6 @@ class ImGuiController{
     float uiVFov;
     float uiFocusDist;
     float uiDefocusAngle;
+    int uiSkyType;
 };
 

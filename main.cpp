@@ -162,6 +162,7 @@ int main()
     ////
     int sample_count = 0;
     int frame = 0;
+    int skyType = SKY_TYPE_A_BIG_LIGHT;
 
     ////
     // 入力
@@ -186,6 +187,10 @@ int main()
     };
     imguiController.OnUpdateDefocusAngle=[&camera](float defocusAngle){
         camera.SetDefocusAngle(defocusAngle);
+    };
+    imguiController.OnUpdateSkyType=[&](int type){
+        skyType=type;
+        sample_count=0;
     };
 
     // シーン切り替え時のUBO再アップロード
@@ -258,7 +263,7 @@ int main()
             raytracing_program.Use();
             raytracing_program.SetUniform("ray_sample_number", sample_count);
             raytracing_program.SetUniform("u_frame", (float)frame);
-            raytracing_program.SetUniform("u_sky_type", SKY_TYPE_A_BIG_LIGHT);
+            raytracing_program.SetUniform("u_sky_type", skyType);
             //テクスチャidをuniformに送信
             for (int i = 0; i < Texture::GetTextureCount(); i++)
             {

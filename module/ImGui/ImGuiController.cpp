@@ -1,5 +1,6 @@
 #include "ImGuiController.hpp"
 #include <GLFW/glfw3.h>
+#include "../RendererSettings.hpp"
 
 ImGuiController::ImGuiController(GLFWwindow *window,float uiVFov,float uiFocusDist,float uiDefocusAngle)
 {
@@ -19,6 +20,7 @@ ImGuiController::ImGuiController(GLFWwindow *window,float uiVFov,float uiFocusDi
     this->uiVFov=uiVFov;
     this->uiFocusDist=uiFocusDist;
     this->uiDefocusAngle=uiDefocusAngle;
+    this->uiSkyType=SKY_TYPE_A_BIG_LIGHT;
 }
 
 void ImGuiController::SetCameraPosition(float x,float y,float z){
@@ -52,6 +54,18 @@ void ImGuiController::Draw()
         }
         if(ImGui::Button("Many Balls",ImVec2(160,20))){
             if(OnClickManyBalls) OnClickManyBalls();
+        }
+    }
+
+    if(ImGui::CollapsingHeader("Sky")){
+        if(ImGui::RadioButton("Blue", &uiSkyType, SKY_TYPE_BLUE)){
+            if(OnUpdateSkyType) OnUpdateSkyType(uiSkyType);
+        }
+        if(ImGui::RadioButton("Dark", &uiSkyType, SKY_TYPE_DARK)){
+            if(OnUpdateSkyType) OnUpdateSkyType(uiSkyType);
+        }
+        if(ImGui::RadioButton("A Big Light", &uiSkyType, SKY_TYPE_A_BIG_LIGHT)){
+            if(OnUpdateSkyType) OnUpdateSkyType(uiSkyType);
         }
     }
 
