@@ -17,19 +17,26 @@ class Camera
 public:
     Camera(float orbitRadius, float aspectRatio, float vfov = 90.0, int max_depth = 10)
     {
-        initialRadius = radius = orbitRadius;
-        float horizontalRadius = cos(orbitPointVertical) * radius;
-
         initialVfov = vfov;
         initialFocusDist = 1.0f;
         initialDefocusAngle = 0.0f;
+        initialOrbitPointHorizontal = 0.0f;
+        initialOrbitPointVertical = 0.52f;
 
-        this->cameraUBO.position = {sin(orbitPointHorizontal) * horizontalRadius, sin(orbitPointVertical) * radius, cos(orbitPointHorizontal) * horizontalRadius};
+        initialRadius = radius = orbitRadius;
+        float horizontalRadius = cos(initialOrbitPointVertical) * radius;
+
+        //UBO初期化
+        this->cameraUBO.position = {sin(initialOrbitPointHorizontal) * horizontalRadius, sin(initialOrbitPointVertical) * radius, cos(initialOrbitPointHorizontal) * horizontalRadius};
         this->cameraUBO.aspect_ratio = aspectRatio;
         this->cameraUBO.max_depth = max_depth;
-        this->cameraUBO.vfov = vfov;
+        this->cameraUBO.vfov = initialVfov;
         this->cameraUBO.defocus_angle = initialDefocusAngle;
         this->cameraUBO.focus_dist = initialFocusDist;
+
+        //初期化
+        this->orbitPointHorizontal = initialOrbitPointHorizontal;
+        this->orbitPointVertical = initialOrbitPointVertical;
     }
 
     // 水平移動
@@ -137,8 +144,8 @@ private:
     float initialVfov;
     float initialFocusDist;
     float initialDefocusAngle;
-    float initialOrbitPointHorizontal = 0.0f;
-    float initialOrbitPointVertical = 0.0f;
+    float initialOrbitPointHorizontal;
+    float initialOrbitPointVertical;
     float initialRadius;
 
     // カメラの公転移動の位置（radius）

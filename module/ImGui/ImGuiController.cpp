@@ -20,7 +20,7 @@ ImGuiController::ImGuiController(GLFWwindow *window,float uiVFov,float uiFocusDi
     this->uiVFov=uiVFov;
     this->uiFocusDist=uiFocusDist;
     this->uiDefocusAngle=uiDefocusAngle;
-    this->uiSkyType=SKY_TYPE_A_BIG_LIGHT;
+    this->uiSkyType=SKY_TYPE_BLUE;
 }
 
 void ImGuiController::SetCameraPosition(float x,float y,float z){
