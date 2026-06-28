@@ -85,10 +85,10 @@ struct SubUBO_Quad
 
 struct UBO_Primitives
 {
-    int sphere_count;   // 4
-    float _padding0[3]; // 16
-    SubUBO_Sphere spheres[MAX_SPHERES];
-    int quad_count;
-    float _padding1[3];
-    SubUBO_Quad quads[MAX_QUADS];
+    int sphere_count;                   // 4
+    float _padding0[3];                 // パディング 16
+    SubUBO_Sphere spheres[MAX_SPHERES]; // 16バイト目から開始 48
+    int quad_count;                     // 52
+    float _padding1[3];                 // パディング 64
+    SubUBO_Quad quads[MAX_QUADS];       // 64バイト目から開始 144
 };

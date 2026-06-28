@@ -6,8 +6,8 @@
 Scene::Scene()
 {
     // threeBalls();
-    // manyBalls();
-    cornellBox();
+    manyBalls();
+    // cornellBox();
     // showcase();
     // mirrorCorridor();
     // boxWithOneLight();
@@ -249,14 +249,14 @@ void Scene::threeBalls()
 
 void Scene::manyBalls()
 {
-    addPrimitive(Quad{
-        glm::vec3(0.0f, 0.0f, 1.5f),
-        glm::vec3(1.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 1.0f, 0.0f),
-        Material{
-            .material_type = MATERIAL_DIFFUSE_LIGHT,
-            .emitted = glm::vec3(0.0f, 7.0f, 0.0f),
-        }});
+    // addPrimitive(Quad{
+    //     glm::vec3(0.0f, 0.0f, 1.5f),
+    //     glm::vec3(1.0f, 0.0f, 0.0f),
+    //     glm::vec3(0.0f, 1.0f, 0.0f),
+    //     Material{
+    //         .material_type = MATERIAL_DIFFUSE_LIGHT,
+    //         .emitted = glm::vec3(0.0f, 7.0f, 0.0f),
+    //     }});
 
     std::mt19937 rng(std::random_device{}());
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);

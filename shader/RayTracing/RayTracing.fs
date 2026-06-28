@@ -146,9 +146,9 @@ vec3 dark() {
     return vec3(0.0);
 }
 vec3 background_sky(vec3 dir) {
-    //return blue_sky(dir.y);
+    return blue_sky(dir.y);
     //return dark();
-    return one_big_light(dir.y);
+    //return one_big_light(dir.y);
 }
 //////////////////////////////////////////////////////
 // データ構造

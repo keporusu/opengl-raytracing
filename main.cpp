@@ -67,11 +67,6 @@ int main()
     glViewport(0, 0, fbW, fbH);
 
     ////
-    // ImGui初期化
-    ////
-    ImGuiController imguiController(window.get());
-
-    ////
     // 蓄積用テクスチャ用意
     ////
     unsigned accumTexture;
@@ -93,6 +88,7 @@ int main()
     Scene scene;
     //カメラ
     Camera camera(0.9f, (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
+    CameraController cameraController;
 
     GLuint VBO, VAO, EBO;
 
@@ -168,7 +164,24 @@ int main()
     InputSystem inputSystem;
     inputSystem.Init(window.get());
 
-    CameraController cameraController;
+    ////
+    // ImGui初期化
+    ////
+    ImGuiController imguiController(
+        window.get(),
+        camera.GetVfov(),
+        camera.GetFocusDist(),
+        camera.GetDefocusAngle()
+    );
+    imguiController.OnUpdateVfov=[&camera](float vfov){
+        camera.SetVfov(vfov);
+    };
+    imguiController.OnUpdateFocusDist=[&camera](float focusDist){
+        camera.SetFocusDist(focusDist);
+    };
+    imguiController.OnUpdateDefocusAngle=[&camera](float defocusAngle){
+        camera.SetDefocusAngle(defocusAngle);
+    };
 
     ////
     // Rendering Loop
@@ -257,21 +270,16 @@ int main()
             glBindTexture(GL_TEXTURE_2D, accumTexture);
             // 描画
             glBindVertexArray(VAO);
-            // auto start = std::chrono::high_resolution_clock::now();
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-            // auto end = std::chrono::high_resolution_clock::now();
-            // drawTime += (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-            // if (frame % 20 == 0)
-            // {
-            //     std::cout << "DrawTime:" << drawTime / 20.0 << std::endl;
-            //     drawTime = 0.0;
-            // }
             glBindVertexArray(GL_NO_BINDING);
         }
         //////////////////////////////////////////////////
 
         // imgui
-        imguiController.Draw(camera, sample_count);
+        glm::vec3 cameraPosition=camera.GetPosition();
+        imguiController.SetCameraPosition(cameraPosition.x,cameraPosition.y,cameraPosition.z);
+        imguiController.SetSampleCount(sample_count);
+        imguiController.Draw();
 
         // glfw: イベントのトリガをチェック、フレームバッファの入れ替え（ここで初めて画面に見える）
         glfwPollEvents();

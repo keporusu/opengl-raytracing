@@ -36,5 +36,5 @@ struct UBO_Materials
 {
     int material_count; // offset 4の倍数
     float _padding2[3]; // パディング
-    SubUBO_Material materials[MAX_MATERIALS];
+    SubUBO_Material materials[MAX_MATERIALS]; //16バイト目から開始 80
 };
