@@ -47,8 +47,12 @@ void ImGuiController::Draw()
     ImGui::Text("Sample Count: %d", uiSampleCount);
 
     if(ImGui::CollapsingHeader("Scene")){
-        ImGui::Button("Cornell Box",ImVec2(160,20));
-        ImGui::Button("Many Balls",ImVec2(160,20));
+        if(ImGui::Button("Cornell Box",ImVec2(160,20))){
+            if(OnClickCornellBox) OnClickCornellBox();
+        }
+        if(ImGui::Button("Many Balls",ImVec2(160,20))){
+            if(OnClickManyBalls) OnClickManyBalls();
+        }
     }
 
     if (ImGui::CollapsingHeader("Camera"))

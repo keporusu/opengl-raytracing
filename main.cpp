@@ -182,6 +182,12 @@ int main()
     imguiController.OnUpdateDefocusAngle=[&camera](float defocusAngle){
         camera.SetDefocusAngle(defocusAngle);
     };
+    imguiController.OnClickCornellBox=[&](){
+        // TODO: シーン切り替え
+    };
+    imguiController.OnClickManyBalls=[&](){
+        // TODO: シーン切り替え
+    };
 
     ////
     // Rendering Loop

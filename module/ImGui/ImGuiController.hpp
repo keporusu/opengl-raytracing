@@ -21,6 +21,8 @@ class ImGuiController{
     std::function<void(float)> OnUpdateVfov;
     std::function<void(float)> OnUpdateFocusDist;
     std::function<void(float)> OnUpdateDefocusAngle;
+    std::function<void()> OnClickCornellBox;
+    std::function<void()> OnClickManyBalls;
 
     private:
     float uiCameraX,uiCameraY,uiCameraZ;
