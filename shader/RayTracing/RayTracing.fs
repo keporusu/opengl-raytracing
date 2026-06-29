@@ -790,7 +790,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
                     Ray new_ray;//次に発生するレイ
                     ScatterRecord scatter_record;
                     bool is_scatterd;
-                    is_scatterd = scatter(ray, new_ray, use_record, scatter_record, seed);
+                    is_scatterd = scatter(env.ray, new_ray, use_record, scatter_record, seed);
                     vec3 emitted = materials[use_record.material].emitted;
                     //面の向きが逆の場合、発光させない
                     if(!use_record.front_face)
@@ -803,7 +803,7 @@ vec3 launch_ray(Ray ray, int sample_number) {
                     //反射できた場合
                     else {
                         // BRDF x cosθ の計算
-                        float brdf_cos = calc_brdf_cos(ray, use_record, new_ray);
+                        float brdf_cos = calc_brdf_cos(env.ray, use_record, new_ray);
                         //再起終了・更に再起
                         push_env(Environment(STATE_RETURN, env.ray, scatter_record.attenuation, emitted, scatter_record.pdf_value, brdf_cos, env.depth));
                         push_env(Environment(STATE_CALLED, new_ray, vec3(1.0), vec3(0.0), 1.0, 1.0, env.depth - 1));
