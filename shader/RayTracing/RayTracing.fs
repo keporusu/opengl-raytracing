@@ -235,7 +235,7 @@ layout(std140) uniform CameraBlock {
     float aspect_ratio;
     float vfov;
     int max_depth;
-    float defous_angle;
+    float defocus_angle;
     float focus_dist;
 };
 layout(std140) uniform MaterialsBlock {
@@ -878,9 +878,9 @@ void main() {
     vec3 aim_point = viewport_loc + vec3(aim_offs, 0.0);
 
     //レイの発射地点（ぼかし）
-    float defous_radius = focus_dist * tan(radians(defous_angle / 2.0));
+    float defocus_radius = focus_dist * tan(radians(defocus_angle / 2.0));
     vec2 launch_offs = random_in_unit_disk(vec4(seed_x, seed_y, float(ray_sample_number) + 2.0, 27.1828182845));
-    vec3 launch_point = camera_pos + launch_offs.x * y_unit * defous_radius + launch_offs.y * x_unit * defous_radius;
+    vec3 launch_point = camera_pos + launch_offs.x * y_unit * defocus_radius + launch_offs.y * x_unit * defocus_radius;
 
     //レイの作成
     vec3 ray_dir = safe_normalize(aim_point - launch_point);
