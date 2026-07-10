@@ -76,7 +76,7 @@ OrthonomalBasis create_orthonomal_basis(vec3 n) {
     return OrthonomalBasis(u, v, w);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 乱数
+// 乱数 ※注意 シード値はuintに丸められるため、非負の大きな小数を入力とすること
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //オリジナル
 uint esgtsa_orig(uint seed) {
@@ -230,7 +230,6 @@ layout(std140) uniform PrimitivesBlock {
     int quad_count;
     Quad quads[MAX_QUADS];
 };
-const float focal_length = 1.0;
 layout(std140) uniform CameraBlock {
     vec3 camera_pos;
     float aspect_ratio;
@@ -373,12 +372,15 @@ bool hit_aabb(AlignedBox aabb, Ray ray) {
         float t1 = (aabb_maxs[axis] - ray.origin[axis]) * invD;
         if(invD < 0.0)
             swap(t0, t1);
+        //レイとaabbの交差点の最小と、最大を求める
         ray_t_min = max(ray_t_min, t0);
         ray_t_max = min(ray_t_max, t1);
         if(ray_t_max <= ray_t_min) {
+            //この場合、レイとaabbは交差していない
             return false;
         }
     }
+    //交差点の最大と最小が存在したため、交わった
     return true;
 }
 //BVHによるヒット処理
@@ -386,31 +388,38 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
     //int best_primitive = -1;
     bool is_hit = false;
     float min_dist = infinity;
-    //bvhのインデックスを保存するスタック（最初は0から）
+    //bvhのインデックスを保存するスタック
     int bvh_index_stack[64];
     int stack_count = 0;
+    
+    //最初は index=0のノードが積んである
     bvh_index_stack[stack_count] = 0;
     stack_count++;
     while(stack_count > 0) {
+        //ノードを取り出す
         stack_count--;
         BVHNode node = bvh_nodes[bvh_index_stack[stack_count]];
-
         AlignedBox aabb = AlignedBox(node.x_min, node.x_max, node.y_min, node.y_max, node.z_min, node.z_max);
 
+        //aabbとレイがヒットしたか？
         bool hit_box = true;
         hit_box = hit_aabb(aabb, ray);
 
         if(!hit_box) {
             continue;
         }
+
+        //以下、ヒットした場合の処理
+
         //葉に到達した場合
         if(node.prim_index >= 0) {
             HitRecord hit_record;
             bool hit = false;
-            //どれかにヒットしたか
+            //どれかにヒットしたか（葉に到達しても、ヒットしない可能性はある）
             if(node.prim_type == PRIM_TYPE_SPHERE) {
                 hit = hit_sphere(spheres[node.prim_index], ray, hit_record, 1e-3, min_dist);
-            } else if(node.prim_type == PRIM_TYPE_QUAD) {
+            } 
+            else if(node.prim_type == PRIM_TYPE_QUAD) {
                 hit = hit_quad(quads[node.prim_index], ray, hit_record, 1e-3, min_dist);
             }
             //ヒットしてたら、ヒット情報を更新する
@@ -419,10 +428,9 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
                 use_record = hit_record;
                 use_record.prim_index = node.prim_index;
                 is_hit = true;
-                //best_primitive = node.prim_index;
             }
         }
-        //まだ葉に到達していない
+        //まだ葉に到達していない場合
         else {
             //スタックに左右のbvhインデックスを積む
             bvh_index_stack[stack_count] = node.right;
@@ -431,7 +439,6 @@ bool traverse_bvh(Ray ray, out HitRecord use_record) {
             stack_count++;
         }
     }
-    //return best_primitive;
     return is_hit;
 }
 //旧ヒット処理
