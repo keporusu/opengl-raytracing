@@ -1,6 +1,8 @@
 #include "Scene.hpp"
 #include "../Texture/Texture.hpp"
 #include <random>
+#include <string>
+#include <algorithm>
 
 // シーン記述
 Scene::Scene()

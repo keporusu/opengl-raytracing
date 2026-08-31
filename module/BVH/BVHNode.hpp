@@ -4,6 +4,8 @@
 #include "../Primitives/Primitives.hpp"
 #include <vector>
 #include <random>
+#include <memory>
+#include <algorithm>
 
 struct SubUBO_BVH
 {

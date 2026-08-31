@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <functional>
 #include "../../third_party/imgui/imgui.h"
 #include "../../third_party/imgui/backends/imgui_impl_glfw.h"
 #include "../../third_party/imgui/backends/imgui_impl_opengl3.h"
