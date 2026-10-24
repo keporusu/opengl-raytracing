@@ -1,14 +1,33 @@
 #include "Texture.hpp"
+#include "../Resources/EmbeddedResources.hpp"
+
+#include <iostream>
+#include <stdexcept>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "../../third_party/stb_image.h"
 
 Texture::Texture(std::string image_path, std::string label)
 {
-    // テクスチャ
+    // テクスチャは実行ファイルに埋め込まれているため、外部ファイルは参照しない
+    const EmbeddedResources::Blob blob = EmbeddedResources::Get(image_path);
+    if (!blob.data)
+    {
+        std::string errorMsg = "Failed to open texture file: " + image_path;
+        std::cerr << errorMsg << std::endl;
+        throw std::runtime_error(errorMsg);
+    }
+
     stbi_set_flip_vertically_on_load(true);
     int width, height, channels;
-    unsigned char *data = stbi_load(image_path.c_str(), &width, &height, &channels, 0);
+    unsigned char *data = stbi_load_from_memory(
+        blob.data, static_cast<int>(blob.size), &width, &height, &channels, 0);
+    if (!data)
+    {
+        std::string errorMsg = "Failed to decode texture: " + image_path;
+        std::cerr << errorMsg << std::endl;
+        throw std::runtime_error(errorMsg);
+    }
     // チャンネル数に応じてフォーマットを選択
     GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
 

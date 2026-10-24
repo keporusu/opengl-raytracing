@@ -4,6 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <glad/glad.h>
+#include "../Resources/EmbeddedResources.hpp"
 #include "../../third_party/glm/gtc/type_ptr.hpp"
 
 void Shader::Load(const std::string &vertexShaderPath, const std::string &fragmentShaderPath)
@@ -123,17 +124,16 @@ unsigned int Shader::createProgram()
 
 std::string Shader::getCode(const std::string &filepath) const
 {
-    std::ifstream file(filepath);
-    if (!file.is_open())
+    // シェーダは実行ファイルに埋め込まれているため、外部ファイルは参照しない
+    const EmbeddedResources::Blob blob = EmbeddedResources::Get(filepath);
+    if (!blob.data)
     {
         std::string errorMsg = "Failed to open shader file: " + filepath;
         std::cerr << errorMsg << std::endl;
         throw std::runtime_error(errorMsg);
     }
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    std::string code = buffer.str();
+    std::string code(reinterpret_cast<const char *>(blob.data), blob.size);
 
     if (code.empty())
     {
